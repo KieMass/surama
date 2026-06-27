@@ -5,16 +5,12 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage, auth } from '../../firebase'
 
 const CATEGORIES = [
-  'Cleaning',
-  'Plumbing',
-  'Electrical',
-  'Carpentry',
-  'Tutoring',
-  'Beauty & Wellness',
-  'Transportation',
-  'Catering',
-  'Photography',
-  'Other',
+  'Cleaning', 'Plumbing', 'Electrical', 'Carpentry',
+  'Tutoring', 'Catering', 'Photography', 'Beauty & Wellness',
+  'Landscaping', 'IT Support', 'Transportation', 'Pest Control',
+  'Auto Repair', 'Event Planning', 'Security', 'Moving & Storage',
+  'Painting', 'Interior Design', 'Childcare', 'Fitness Training',
+  'Tailoring', 'Music Lessons', 'Pet Care', 'Other',
 ]
 
 export default function CreateListing() {

@@ -34,7 +34,14 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white border-b border-gray-100 px-6 py-4">
+        <Link to="/" className="text-xl font-bold text-teal-600 tracking-tight">
+          Surama.net
+        </Link>
+      </nav>
+
+      <div className="flex items-center justify-center p-4 pt-12">
       <div className="bg-white rounded-2xl shadow-md p-8 w-full max-w-md">
         <h1 className="text-2xl font-semibold text-gray-800 mb-6 text-center">Join Surama</h1>
 
@@ -110,6 +117,7 @@ export default function Register() {
             Sign in
           </Link>
         </p>
+      </div>
       </div>
     </div>
   )
