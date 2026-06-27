@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd \"c:\\\\websites\\\\surama\"; $env:NODE_OPTIONS=\"--use-system-ca\"; npm install -D tailwindcss@3 postcss autoprefixer 2>&1 | Select-Object -Last 15)",
+      "PowerShell(cd \"c:\\\\websites\\\\surama\"; $env:NODE_OPTIONS=\"--use-system-ca\"; $proc = Start-Process -FilePath \"node\" -ArgumentList \"node_modules\\\\.bin\\\\vite\" -PassThru -NoNewWindow -RedirectStandardOutput \"$env:TEMP\\\\vite_out.txt\" -RedirectStandardError \"$env:TEMP\\\\vite_err.txt\"; Start-Sleep -Seconds 8; $out = Get-Content \"$env:TEMP\\\\vite_out.txt\" -Raw -ErrorAction SilentlyContinue; $err = Get-Content \"$env:TEMP\\\\vite_err.txt\" -Raw -ErrorAction SilentlyContinue; $proc.Kill\\(\\); \"=== STDOUT ===\"; $out; \"=== STDERR ===\"; $err)",
+      "PowerShell(cd \"c:\\\\websites\\\\surama\"; $env:NODE_OPTIONS=\"--use-system-ca\"; $job = Start-Job -ScriptBlock { Set-Location \"c:\\\\websites\\\\surama\"; $env:NODE_OPTIONS=\"--use-system-ca\"; npm run dev 2>&1 }; Start-Sleep -Seconds 10; $output = Receive-Job $job; Stop-Job $job; Remove-Job $job; $output)",
+      "PowerShell(cd \"c:\\\\websites\\\\surama\"; $env:NODE_OPTIONS=\"--use-system-ca\"; npm run dev)"
+    ]
+  }
+}
