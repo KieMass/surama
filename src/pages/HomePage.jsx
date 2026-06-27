@@ -45,8 +45,8 @@ function Navbar() {
   return (
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <Link to="/" className="text-xl font-bold text-teal-600 tracking-tight">
-          Surama.net
+        <Link to="/">
+          <img src="/logo-dark.png" alt="Surama.net" className="h-10 w-auto" />
         </Link>
         <div className="flex items-center gap-5">
           <a href="#listings" className="text-sm text-gray-600 hover:text-gray-900 hidden sm:block">
@@ -360,7 +360,7 @@ function Footer() {
   return (
     <footer className="bg-gray-900 text-gray-400 py-10 px-6">
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-        <span className="text-white font-bold text-lg">Surama.net</span>
+        <img src="/logo-white.png" alt="Surama.net" className="h-9 w-auto" />
         <span className="text-sm">© 2025 Surama.net. Built for Guyana.</span>
         <div className="flex gap-5 text-sm">
           <a href="#" className="hover:text-white transition-colors">Privacy</a>

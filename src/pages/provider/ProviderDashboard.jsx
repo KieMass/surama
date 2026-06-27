@@ -15,7 +15,7 @@ export default function ProviderDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-teal-600 text-white px-6 py-4 flex items-center justify-between">
-        <span className="text-xl font-semibold tracking-tight">Surama</span>
+        <img src="/logo-white.png" alt="Surama.net" className="h-9 w-auto" />
         <button onClick={handleSignOut} className="text-sm hover:underline">
           Sign out
         </button>

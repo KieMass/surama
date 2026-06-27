@@ -6,8 +6,8 @@ export default function ServiceDetail() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-100 px-6 py-4">
-        <Link to="/" className="text-xl font-bold text-teal-600 tracking-tight">
-          Surama.net
+        <Link to="/">
+          <img src="/logo-dark.png" alt="Surama.net" className="h-10 w-auto" />
         </Link>
       </nav>
       <div className="max-w-2xl mx-auto px-6 py-20 text-center">

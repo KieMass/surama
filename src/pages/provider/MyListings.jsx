@@ -45,7 +45,7 @@ export default function MyListings() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-teal-600 text-white px-6 py-4 flex items-center justify-between">
-        <span className="text-xl font-semibold tracking-tight">Surama</span>
+        <img src="/logo-white.png" alt="Surama.net" className="h-9 w-auto" />
         <Link
           to="/provider/listings/create"
           className="text-sm bg-white text-teal-600 px-4 py-1.5 rounded-lg font-medium hover:bg-teal-50 transition-colors"
