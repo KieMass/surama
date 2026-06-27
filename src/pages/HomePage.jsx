@@ -98,9 +98,9 @@ function Navbar({ onBrowse }) {
         </Link>
 
         <div className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600">
-          <Link to="/" className="hover:text-teal-600 transition-colors">Home</Link>
-          <button onClick={onBrowse} className="hover:text-teal-600 transition-colors">Browse Services</button>
-          <a href="#how-it-works" className="hover:text-teal-600 transition-colors">How it Works</a>
+          <Link to="/" className="hover:text-primary-600 transition-colors">Home</Link>
+          <button onClick={onBrowse} className="hover:text-primary-600 transition-colors">Browse Services</button>
+          <a href="#how-it-works" className="hover:text-primary-600 transition-colors">How it Works</a>
         </div>
 
         <div className="flex items-center gap-3">
@@ -109,7 +109,7 @@ function Navbar({ onBrowse }) {
           </Link>
           <Link
             to="/register"
-            className="text-sm bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-lg font-semibold transition-colors"
+            className="text-sm bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg font-semibold transition-colors"
           >
             Get Started
           </Link>
@@ -158,7 +158,7 @@ function HeroSlider({ onBrowse }) {
                 transition: 'opacity 0.35s ease, transform 0.35s ease',
               }}
             >
-              <span className="inline-block bg-teal-50 text-teal-700 text-xs font-bold px-3 py-1.5 rounded-full mb-5 tracking-wide">
+              <span className="inline-block bg-primary-50 text-primary-700 text-xs font-bold px-3 py-1.5 rounded-full mb-5 tracking-wide">
                 {slide.badge}
               </span>
 
@@ -174,21 +174,21 @@ function HeroSlider({ onBrowse }) {
                 {slide.ctaLink ? (
                   <Link
                     to={slide.ctaLink}
-                    className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-sm"
+                    className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-sm"
                   >
                     {slide.cta}
                   </Link>
                 ) : (
                   <button
                     onClick={onBrowse}
-                    className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-sm"
+                    className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-sm"
                   >
                     {slide.cta}
                   </button>
                 )}
                 <Link
                   to="/register"
-                  className="border-2 border-gray-200 text-gray-700 hover:border-teal-400 hover:text-teal-600 px-6 py-3 rounded-xl font-semibold transition-colors"
+                  className="border-2 border-gray-200 text-gray-700 hover:border-primary-400 hover:text-primary-600 px-6 py-3 rounded-xl font-semibold transition-colors"
                 >
                   Join Free
                 </Link>
@@ -202,7 +202,7 @@ function HeroSlider({ onBrowse }) {
                   key={i}
                   onClick={() => goTo(i)}
                   className={`h-2 rounded-full transition-all duration-300 ${
-                    i === current ? 'w-8 bg-teal-600' : 'w-2 bg-gray-300 hover:bg-gray-400'
+                    i === current ? 'w-8 bg-primary-600' : 'w-2 bg-gray-300 hover:bg-gray-400'
                   }`}
                   aria-label={`Go to slide ${i + 1}`}
                 />
@@ -254,12 +254,12 @@ function StatsStrip() {
     { value: '24/7', label: 'Active listings' },
   ]
   return (
-    <section className="bg-teal-600">
+    <section className="bg-primary-600">
       <div className="max-w-4xl mx-auto px-6 py-8 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
         {stats.map((s) => (
           <div key={s.label}>
             <p className="text-2xl font-extrabold text-white">{s.value}</p>
-            <p className="text-sm text-teal-100 mt-0.5">{s.label}</p>
+            <p className="text-sm text-primary-100 mt-0.5">{s.label}</p>
           </div>
         ))}
       </div>
@@ -282,7 +282,7 @@ function CategoryShowcase({ onSelect, listingsRef }) {
             <h2 className="text-2xl font-bold text-gray-900">Browse by category</h2>
             <p className="text-gray-500 text-sm mt-1">Find exactly the service you're looking for</p>
           </div>
-          <button onClick={() => scrollAndFilter('All')} className="text-sm text-teal-600 hover:underline font-medium">
+          <button onClick={() => scrollAndFilter('All')} className="text-sm text-primary-600 hover:underline font-medium">
             View all listings →
           </button>
         </div>
@@ -325,19 +325,19 @@ function SkeletonCard() {
 // ─── Service card ─────────────────────────────────────────────────────────────
 function ServiceCard({ service }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-teal-200 hover:shadow-lg transition-all flex flex-col">
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-primary-200 hover:shadow-lg transition-all flex flex-col">
       <div className="relative">
         {service.imageUrl ? (
           <img src={service.imageUrl} alt={service.title} className="w-full h-48 object-cover" />
         ) : (
           <div className="w-full h-48 flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #f0fdfa, #ccfbf1)' }}>
-            <span className="text-6xl font-black text-teal-200 select-none">
+            style={{ background: 'linear-gradient(135deg, #fff1f2, #ffcdd0)' }}>
+            <span className="text-6xl font-black text-primary-200 select-none">
               {service.category?.[0] ?? 'S'}
             </span>
           </div>
         )}
-        <span className="absolute top-3 left-3 bg-teal-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow">
+        <span className="absolute top-3 left-3 bg-primary-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow">
           {service.category}
         </span>
       </div>
@@ -351,7 +351,7 @@ function ServiceCard({ service }) {
           </p>
           <Link
             to={`/services/${service.id}`}
-            className="block w-full text-center border-2 border-teal-600 text-teal-600 hover:bg-teal-600 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-colors"
+            className="block w-full text-center border-2 border-primary-600 text-primary-600 hover:bg-primary-600 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-colors"
           >
             View details
           </Link>
@@ -372,7 +372,7 @@ function ListingsSection({ services, loading, activeCategory, onCategoryChange }
             <p className="text-gray-500 text-sm mt-1">Real services from providers near you</p>
           </div>
           {activeCategory !== 'All' && (
-            <button onClick={() => onCategoryChange('All')} className="text-sm text-teal-600 hover:underline self-start sm:self-auto">
+            <button onClick={() => onCategoryChange('All')} className="text-sm text-primary-600 hover:underline self-start sm:self-auto">
               Clear filter ×
             </button>
           )}
@@ -386,8 +386,8 @@ function ListingsSection({ services, loading, activeCategory, onCategoryChange }
               onClick={() => onCategoryChange(cat)}
               className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 activeCategory === cat
-                  ? 'bg-teal-600 text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-teal-400'
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-primary-400'
               }`}
             >
               {cat}
@@ -405,7 +405,7 @@ function ListingsSection({ services, loading, activeCategory, onCategoryChange }
             <p className="text-gray-500 font-medium">No services in this category yet.</p>
             <p className="text-gray-400 text-sm mt-1">Be the first to offer this service!</p>
             <Link to="/register"
-              className="inline-block mt-5 bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+              className="inline-block mt-5 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
             >
               Become a provider
             </Link>
@@ -434,10 +434,10 @@ function HowItWorks() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-10">
           {HOW_IT_WORKS.map((step) => (
             <div key={step.n} className="text-center">
-              <div className="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center mx-auto mb-4 text-2xl shadow-sm">
+              <div className="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mx-auto mb-4 text-2xl shadow-sm">
                 {step.emoji}
               </div>
-              <span className="text-xs font-bold text-teal-500 tracking-widest uppercase mb-1 block">
+              <span className="text-xs font-bold text-primary-500 tracking-widest uppercase mb-1 block">
                 Step {step.n}
               </span>
               <h3 className="font-bold text-gray-900 mb-2">{step.title}</h3>
@@ -454,17 +454,17 @@ function HowItWorks() {
 function CTABanner() {
   return (
     <section className="relative py-20 px-6 text-center overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #134e4a 100%)' }}>
+      style={{ background: 'linear-gradient(135deg, #ff5a5f 0%, #e8464b 50%, #c93338 100%)' }}>
       <div className="absolute inset-0 opacity-10"
         style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
       <div className="relative max-w-2xl mx-auto">
-        <p className="text-teal-200 text-sm font-semibold uppercase tracking-widest mb-3">For service providers</p>
+        <p className="text-primary-100 text-sm font-semibold uppercase tracking-widest mb-3">For service providers</p>
         <h2 className="text-3xl font-extrabold text-white mb-3">Ready to grow your business?</h2>
-        <p className="text-teal-100 mb-8 text-lg">
+        <p className="text-primary-100 mb-8 text-lg">
           Join providers already earning on Surama.net. List your first service free.
         </p>
         <Link to="/register"
-          className="inline-block bg-white text-teal-700 hover:bg-teal-50 px-8 py-4 rounded-xl font-bold transition-colors shadow-md text-sm"
+          className="inline-block bg-white text-primary-700 hover:bg-primary-50 px-8 py-4 rounded-xl font-bold transition-colors shadow-md text-sm"
         >
           Start offering services →
         </Link>

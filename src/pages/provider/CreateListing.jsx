@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage, auth } from '../../firebase'
@@ -62,32 +62,31 @@ export default function CreateListing() {
   }
 
   const inputClass =
-    'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500'
+    'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500'
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-teal-600 text-white px-6 py-4 flex items-center justify-between">
-        <img src="/logo-white.png" alt="Surama.net" className="h-9 w-auto" />
+      <nav className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between">
+        <Link to="/">
+          <img src="/logo-dark.png" alt="Surama.net" className="h-10 w-auto" />
+        </Link>
         <button
           type="button"
           onClick={() => navigate('/provider/dashboard')}
-          className="text-sm hover:underline"
+          className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"
         >
           Dashboard
         </button>
       </nav>
 
-      <div className="max-w-2xl mx-auto p-6">
-        <h1 className="text-2xl font-semibold text-gray-800 mb-6">Create New Listing</h1>
+      <div className="max-w-2xl mx-auto p-6 pt-10">
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Create New Listing</h1>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 shadow-sm space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Service Title</label>
             <input
-              type="text"
-              required
-              value={form.title}
-              onChange={set('title')}
+              type="text" required value={form.title} onChange={set('title')}
               placeholder="e.g. Professional House Cleaning"
               className={inputClass}
             />
@@ -96,19 +95,14 @@ export default function CreateListing() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
             <select value={form.category} onChange={set('category')} className={inputClass}>
-              {CATEGORIES.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
+              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
-              required
-              rows={4}
-              value={form.description}
-              onChange={set('description')}
+              required rows={4} value={form.description} onChange={set('description')}
               placeholder="Describe your service, availability, and what's included…"
               className={`${inputClass} resize-none`}
             />
@@ -118,13 +112,8 @@ export default function CreateListing() {
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
               <input
-                type="number"
-                required
-                min="0"
-                step="0.01"
-                value={form.price}
-                onChange={set('price')}
-                placeholder="0.00"
+                type="number" required min="0" step="0.01"
+                value={form.price} onChange={set('price')} placeholder="0.00"
                 className={inputClass}
               />
             </div>
@@ -142,10 +131,9 @@ export default function CreateListing() {
               Image <span className="text-gray-400 font-normal">(optional)</span>
             </label>
             <input
-              type="file"
-              accept="image/*"
+              type="file" accept="image/*"
               onChange={(e) => setImageFile(e.target.files[0] || null)}
-              className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 cursor-pointer"
+              className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
             />
           </div>
 
@@ -160,9 +148,8 @@ export default function CreateListing() {
               Cancel
             </button>
             <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              type="submit" disabled={loading}
+              className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
             >
               {loading ? 'Publishing…' : 'Publish Listing'}
             </button>

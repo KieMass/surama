@@ -11,7 +11,7 @@ export default function ServiceDetail() {
         </Link>
       </nav>
       <div className="max-w-2xl mx-auto px-6 py-20 text-center">
-        <p className="text-xs text-teal-600 font-semibold uppercase tracking-wide mb-2">
+        <p className="text-xs text-primary-600 font-semibold uppercase tracking-wide mb-2">
           Coming soon
         </p>
         <h1 className="text-2xl font-bold text-gray-900 mb-3">Service Details</h1>
@@ -20,7 +20,7 @@ export default function ServiceDetail() {
         </p>
         <Link
           to="/"
-          className="inline-block bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"
+          className="inline-block bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"
         >
           ← Back to listings
         </Link>
