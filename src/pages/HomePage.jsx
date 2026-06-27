@@ -44,7 +44,7 @@ const SLIDES = [
     headline: 'Grow your business on Surama.net',
     sub: 'Join providers already earning by listing your services free. Reach clients across Guyana today.',
     image: '/hero-4.png',
-    cta: 'Become a Provider',
+    cta: 'Become a Provider →',
     ctaLink: '/register',
   },
 ]
@@ -65,33 +65,37 @@ const FEATURED_CATEGORIES = [
 ]
 
 const TRUST = [
-  {
-    icon: '✅',
-    title: 'Verified Providers',
-    desc: 'All providers are reviewed before listing on the platform.',
-  },
-  {
-    icon: '💸',
-    title: 'No Upfront Costs',
-    desc: 'Browse and connect with service providers completely free.',
-  },
-  {
-    icon: '🔒',
-    title: 'Secure Platform',
-    desc: 'Your data and dealings are protected at every step.',
-  },
+  { icon: '✅', title: 'Verified Providers', desc: 'All providers are reviewed before listing on the platform.' },
+  { icon: '💸', title: 'No Upfront Costs',   desc: 'Browse and connect with service providers completely free.' },
+  { icon: '🔒', title: 'Secure Platform',    desc: 'Your data and dealings are protected at every step.' },
 ]
 
 const HOW_IT_WORKS = [
-  { emoji: '🔍', n: '01', title: 'Browse services', desc: 'Filter by category to find exactly what you need from verified local providers.' },
-  { emoji: '📩', n: '02', title: 'Book a provider', desc: 'Send a request with your details and agree on a time that works for both of you.' },
-  { emoji: '✅', n: '03', title: 'Get it done', desc: 'Your provider shows up and delivers — rate the experience when complete.' },
+  { emoji: '🔍', n: '01', title: 'Browse services',  desc: 'Filter by category to find exactly what you need from verified local providers.' },
+  { emoji: '📩', n: '02', title: 'Book a provider',  desc: 'Send a request with your details and agree on a time that works for both of you.' },
+  { emoji: '✅', n: '03', title: 'Get it done',       desc: 'Your provider shows up and delivers — rate the experience when complete.' },
 ]
+
+const STATS = [
+  { value: '24+',  label: 'Service categories' },
+  { value: '100%', label: 'Guyana-based' },
+  { value: 'Free', label: 'To browse & list' },
+  { value: '24/7', label: 'Active listings' },
+]
+
+// ─── Reusable section badge ───────────────────────────────────────────────────
+function SectionBadge({ children }) {
+  return (
+    <span className="inline-block bg-primary-50 text-primary-600 text-xs font-bold px-3 py-1.5 rounded-full mb-3 tracking-widest uppercase">
+      {children}
+    </span>
+  )
+}
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 function Navbar({ onBrowse }) {
   return (
-    <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
         <Link to="/">
           <img src="/logo-dark.png" alt="Surama.net" className="h-10 w-auto" />
@@ -109,7 +113,7 @@ function Navbar({ onBrowse }) {
           </Link>
           <Link
             to="/register"
-            className="text-sm bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg font-semibold transition-colors"
+            className="text-sm bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg font-semibold transition-colors shadow-sm shadow-primary-100"
           >
             Get Started
           </Link>
@@ -134,10 +138,7 @@ function HeroSlider({ onBrowse }) {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      goTo((prev) => {
-        const next = (prev + 1) % SLIDES.length
-        return next
-      })
+      goTo((prev) => (prev + 1) % SLIDES.length)
     }, 5500)
     return () => clearInterval(timer)
   }, [goTo])
@@ -145,12 +146,18 @@ function HeroSlider({ onBrowse }) {
   const slide = SLIDES[current]
 
   return (
-    <section className="bg-white border-b border-gray-100 overflow-hidden">
+    <section className="border-b border-gray-100 overflow-hidden bg-white">
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[540px]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[560px]">
 
-          {/* Left — text content */}
-          <div className="flex flex-col justify-center px-8 lg:px-14 py-16 lg:py-20">
+          {/* Left — text */}
+          <div
+            className="flex flex-col justify-center px-8 lg:px-14 py-16 lg:py-20 relative"
+            style={{ background: 'linear-gradient(160deg, rgba(255,241,242,0.55) 0%, rgba(255,255,255,0) 55%)' }}
+          >
+            {/* Subtle decorative ring */}
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 rounded-full border-[40px] border-primary-50 opacity-60 pointer-events-none" />
+
             <div
               style={{
                 opacity: visible ? 1 : 0,
@@ -158,7 +165,7 @@ function HeroSlider({ onBrowse }) {
                 transition: 'opacity 0.35s ease, transform 0.35s ease',
               }}
             >
-              <span className="inline-block bg-primary-50 text-primary-700 text-xs font-bold px-3 py-1.5 rounded-full mb-5 tracking-wide">
+              <span className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 text-xs font-bold px-3 py-1.5 rounded-full mb-5 tracking-wide">
                 {slide.badge}
               </span>
 
@@ -170,56 +177,53 @@ function HeroSlider({ onBrowse }) {
                 {slide.sub}
               </p>
 
-              <div className="flex gap-3 flex-wrap">
+              <div className="flex gap-3 flex-wrap relative z-10">
                 {slide.ctaLink ? (
                   <Link
                     to={slide.ctaLink}
-                    className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-sm"
+                    className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-md shadow-primary-100"
                   >
                     {slide.cta}
                   </Link>
                 ) : (
                   <button
                     onClick={onBrowse}
-                    className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-sm"
+                    className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-md shadow-primary-100"
                   >
-                    {slide.cta}
+                    {slide.cta} →
                   </button>
                 )}
                 <Link
                   to="/register"
-                  className="border-2 border-gray-200 text-gray-700 hover:border-primary-400 hover:text-primary-600 px-6 py-3 rounded-xl font-semibold transition-colors"
+                  className="border-2 border-gray-200 text-gray-700 hover:border-primary-400 hover:text-primary-600 px-6 py-3 rounded-xl font-semibold transition-colors bg-white"
                 >
                   Join Free
                 </Link>
               </div>
             </div>
 
-            {/* Dot indicators */}
-            <div className="flex gap-2 mt-10">
+            {/* Dot nav */}
+            <div className="flex gap-2 mt-10 relative z-10">
               {SLIDES.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => goTo(i)}
                   className={`h-2 rounded-full transition-all duration-300 ${
-                    i === current ? 'w-8 bg-primary-600' : 'w-2 bg-gray-300 hover:bg-gray-400'
+                    i === current ? 'w-8 bg-primary-600' : 'w-2 bg-gray-200 hover:bg-gray-300'
                   }`}
-                  aria-label={`Go to slide ${i + 1}`}
+                  aria-label={`Slide ${i + 1}`}
                 />
               ))}
             </div>
           </div>
 
           {/* Right — image */}
-          <div className="hidden lg:block relative bg-gray-50 overflow-hidden">
+          <div className="hidden lg:block relative overflow-hidden bg-gray-50">
             <img
               src={slide.image}
               alt=""
               className="w-full h-full object-cover"
-              style={{
-                opacity: visible ? 1 : 0,
-                transition: 'opacity 0.35s ease',
-              }}
+              style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.35s ease' }}
             />
           </div>
         </div>
@@ -228,14 +232,21 @@ function HeroSlider({ onBrowse }) {
   )
 }
 
-// ─── Trust indicators ─────────────────────────────────────────────────────────
+// ─── Trust Strip ──────────────────────────────────────────────────────────────
 function TrustStrip() {
   return (
     <section className="bg-gray-50 border-b border-gray-100">
-      <div className="max-w-5xl mx-auto px-6 py-10 grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className="max-w-5xl mx-auto px-6 py-10 grid grid-cols-1 sm:grid-cols-3 gap-5">
         {TRUST.map((t) => (
-          <div key={t.title} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center">
-            <div className="text-3xl mb-3">{t.icon}</div>
+          <div
+            key={t.title}
+            className="relative bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center overflow-hidden hover:shadow-md hover:border-primary-100 transition-all"
+          >
+            {/* Colored top accent */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-400 to-primary-600 rounded-t-2xl" />
+            <div className="w-14 h-14 rounded-2xl bg-primary-50 flex items-center justify-center mx-auto mb-4 text-2xl mt-2">
+              {t.icon}
+            </div>
             <h3 className="font-bold text-gray-900 mb-1">{t.title}</h3>
             <p className="text-sm text-gray-500 leading-relaxed">{t.desc}</p>
           </div>
@@ -247,19 +258,18 @@ function TrustStrip() {
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 function StatsStrip() {
-  const stats = [
-    { value: '24+', label: 'Service categories' },
-    { value: '100%', label: 'Guyana-based' },
-    { value: 'Free', label: 'To browse & list' },
-    { value: '24/7', label: 'Active listings' },
-  ]
   return (
-    <section className="bg-primary-600">
-      <div className="max-w-4xl mx-auto px-6 py-8 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
-        {stats.map((s) => (
+    <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #ff5a5f 0%, #e8464b 50%, #c93338 100%)' }}>
+      {/* Dot pattern overlay */}
+      <div
+        className="absolute inset-0 opacity-10 pointer-events-none"
+        style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }}
+      />
+      <div className="relative max-w-4xl mx-auto px-6 py-10 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
+        {STATS.map((s) => (
           <div key={s.label}>
-            <p className="text-2xl font-extrabold text-white">{s.value}</p>
-            <p className="text-sm text-primary-100 mt-0.5">{s.label}</p>
+            <p className="text-3xl font-extrabold text-white">{s.value}</p>
+            <p className="text-sm text-primary-100 mt-1">{s.label}</p>
           </div>
         ))}
       </div>
@@ -267,7 +277,7 @@ function StatsStrip() {
   )
 }
 
-// ─── Category showcase ────────────────────────────────────────────────────────
+// ─── Category Showcase ────────────────────────────────────────────────────────
 function CategoryShowcase({ onSelect, listingsRef }) {
   const scrollAndFilter = (name) => {
     onSelect(name)
@@ -275,14 +285,18 @@ function CategoryShowcase({ onSelect, listingsRef }) {
   }
 
   return (
-    <section id="categories" className="bg-white py-16 px-6 border-b border-gray-100">
+    <section id="categories" className="bg-white py-20 px-6 border-b border-gray-100">
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Browse by category</h2>
-            <p className="text-gray-500 text-sm mt-1">Find exactly the service you're looking for</p>
+            <SectionBadge>Services</SectionBadge>
+            <h2 className="text-3xl font-extrabold text-gray-900">Browse by category</h2>
+            <p className="text-gray-500 text-sm mt-2">Find exactly the service you're looking for</p>
           </div>
-          <button onClick={() => scrollAndFilter('All')} className="text-sm text-primary-600 hover:underline font-medium">
+          <button
+            onClick={() => scrollAndFilter('All')}
+            className="text-sm text-primary-600 hover:text-primary-700 font-semibold hover:underline transition-colors self-start sm:self-auto"
+          >
             View all listings →
           </button>
         </div>
@@ -292,7 +306,7 @@ function CategoryShowcase({ onSelect, listingsRef }) {
             <button
               key={cat.name}
               onClick={() => scrollAndFilter(cat.name)}
-              className="group relative rounded-2xl overflow-hidden text-left p-5 shadow-sm hover:shadow-md transition-shadow"
+              className="group relative rounded-2xl overflow-hidden text-left p-5 shadow-sm hover:shadow-lg transition-all hover:-translate-y-0.5"
               style={{ background: `linear-gradient(135deg, ${cat.from}, ${cat.to})` }}
             >
               <span className="text-3xl mb-3 block">{cat.emoji}</span>
@@ -310,34 +324,36 @@ function CategoryShowcase({ onSelect, listingsRef }) {
 function SkeletonCard() {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden animate-pulse">
-      <div className="w-full h-48 bg-gray-200" />
+      <div className="w-full h-48 bg-gray-100" />
       <div className="p-4 space-y-3">
-        <div className="h-3 bg-gray-200 rounded w-1/3" />
-        <div className="h-4 bg-gray-200 rounded w-3/4" />
-        <div className="h-3 bg-gray-200 rounded w-full" />
-        <div className="h-3 bg-gray-200 rounded w-5/6" />
-        <div className="h-9 bg-gray-200 rounded mt-2" />
+        <div className="h-3 bg-gray-100 rounded w-1/3" />
+        <div className="h-4 bg-gray-100 rounded w-3/4" />
+        <div className="h-3 bg-gray-100 rounded w-full" />
+        <div className="h-3 bg-gray-100 rounded w-5/6" />
+        <div className="h-9 bg-gray-100 rounded mt-2" />
       </div>
     </div>
   )
 }
 
-// ─── Service card ─────────────────────────────────────────────────────────────
+// ─── Service Card ─────────────────────────────────────────────────────────────
 function ServiceCard({ service }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-primary-200 hover:shadow-lg transition-all flex flex-col">
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-primary-200 hover:shadow-xl transition-all hover:-translate-y-0.5 flex flex-col">
       <div className="relative">
         {service.imageUrl ? (
           <img src={service.imageUrl} alt={service.title} className="w-full h-48 object-cover" />
         ) : (
-          <div className="w-full h-48 flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #fff1f2, #ffcdd0)' }}>
+          <div
+            className="w-full h-48 flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, #fff1f2, #ffcdd0)' }}
+          >
             <span className="text-6xl font-black text-primary-200 select-none">
               {service.category?.[0] ?? 'S'}
             </span>
           </div>
         )}
-        <span className="absolute top-3 left-3 bg-primary-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow">
+        <span className="absolute top-3 left-3 bg-primary-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
           {service.category}
         </span>
       </div>
@@ -361,18 +377,22 @@ function ServiceCard({ service }) {
   )
 }
 
-// ─── Listings ─────────────────────────────────────────────────────────────────
+// ─── Listings Section ─────────────────────────────────────────────────────────
 function ListingsSection({ services, loading, activeCategory, onCategoryChange }) {
   return (
-    <section id="listings" className="bg-gray-50 py-16 px-6">
+    <section id="listings" className="py-20 px-6" style={{ background: '#f8f9fb' }}>
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Live listings</h2>
-            <p className="text-gray-500 text-sm mt-1">Real services from providers near you</p>
+            <SectionBadge>Live Listings</SectionBadge>
+            <h2 className="text-3xl font-extrabold text-gray-900">Services near you</h2>
+            <p className="text-gray-500 text-sm mt-2">Real services from providers across Guyana</p>
           </div>
           {activeCategory !== 'All' && (
-            <button onClick={() => onCategoryChange('All')} className="text-sm text-primary-600 hover:underline self-start sm:self-auto">
+            <button
+              onClick={() => onCategoryChange('All')}
+              className="text-sm text-primary-600 hover:underline font-medium self-start sm:self-auto"
+            >
               Clear filter ×
             </button>
           )}
@@ -384,10 +404,10 @@ function ListingsSection({ services, loading, activeCategory, onCategoryChange }
             <button
               key={cat}
               onClick={() => onCategoryChange(cat)}
-              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                 activeCategory === cat
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-primary-400'
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-primary-400 hover:text-primary-600'
               }`}
             >
               {cat}
@@ -400,14 +420,15 @@ function ListingsSection({ services, loading, activeCategory, onCategoryChange }
             {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : services.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
-            <p className="text-4xl mb-4">🔍</p>
-            <p className="text-gray-500 font-medium">No services in this category yet.</p>
-            <p className="text-gray-400 text-sm mt-1">Be the first to offer this service!</p>
-            <Link to="/register"
-              className="inline-block mt-5 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+          <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
+            <div className="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mx-auto mb-4 text-3xl">🔍</div>
+            <p className="text-gray-700 font-semibold text-lg mb-1">No services here yet</p>
+            <p className="text-gray-400 text-sm mb-6">Be the first to offer this service in Guyana!</p>
+            <Link
+              to="/register"
+              className="inline-block bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl text-sm font-semibold transition-colors shadow-sm"
             >
-              Become a provider
+              Become a Provider →
             </Link>
           </div>
         ) : (
@@ -422,28 +443,42 @@ function ListingsSection({ services, loading, activeCategory, onCategoryChange }
   )
 }
 
-// ─── How it works ─────────────────────────────────────────────────────────────
+// ─── How it Works ─────────────────────────────────────────────────────────────
 function HowItWorks() {
   return (
-    <section id="how-it-works" className="bg-white py-16 px-6 border-t border-gray-100">
+    <section id="how-it-works" className="bg-white py-20 px-6 border-t border-gray-100">
       <div className="max-w-5xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">How Surama works</h2>
+        <div className="text-center mb-16">
+          <SectionBadge>Simple process</SectionBadge>
+          <h2 className="text-3xl font-extrabold text-gray-900 mb-2">Simple, trusted, local</h2>
           <p className="text-gray-500 text-sm">Getting help has never been simpler</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-10">
-          {HOW_IT_WORKS.map((step) => (
-            <div key={step.n} className="text-center">
-              <div className="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mx-auto mb-4 text-2xl shadow-sm">
-                {step.emoji}
+
+        <div className="relative">
+          {/* Connecting line (desktop) */}
+          <div className="hidden sm:block absolute top-[3.25rem] left-[16.67%] right-[16.67%] h-px bg-gradient-to-r from-primary-200 via-primary-400 to-primary-200 z-0" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-10">
+            {HOW_IT_WORKS.map((step) => (
+              <div key={step.n} className="text-center relative">
+                {/* Ghost number */}
+                <div className="absolute inset-x-0 top-0 h-20 overflow-hidden pointer-events-none select-none z-0 flex justify-center items-start">
+                  <span className="text-9xl font-black text-primary-50 leading-none -mt-3">{step.n}</span>
+                </div>
+                {/* Content */}
+                <div className="relative z-10 pt-6">
+                  <div className="w-16 h-16 rounded-2xl bg-primary-600 flex items-center justify-center mx-auto mb-5 text-2xl shadow-lg shadow-primary-100">
+                    {step.emoji}
+                  </div>
+                  <span className="text-xs font-bold text-primary-500 tracking-widest uppercase mb-2 block">
+                    Step {step.n}
+                  </span>
+                  <h3 className="font-bold text-gray-900 mb-2 text-lg">{step.title}</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed">{step.desc}</p>
+                </div>
               </div>
-              <span className="text-xs font-bold text-primary-500 tracking-widest uppercase mb-1 block">
-                Step {step.n}
-              </span>
-              <h3 className="font-bold text-gray-900 mb-2">{step.title}</h3>
-              <p className="text-sm text-gray-500 leading-relaxed">{step.desc}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -453,18 +488,27 @@ function HowItWorks() {
 // ─── CTA Banner ───────────────────────────────────────────────────────────────
 function CTABanner() {
   return (
-    <section className="relative py-20 px-6 text-center overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #ff5a5f 0%, #e8464b 50%, #c93338 100%)' }}>
-      <div className="absolute inset-0 opacity-10"
-        style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+    <section
+      className="relative py-20 px-6 text-center overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, #ff5a5f 0%, #e8464b 50%, #c93338 100%)' }}
+    >
+      <div
+        className="absolute inset-0 opacity-10 pointer-events-none"
+        style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }}
+      />
+      {/* Decorative circles */}
+      <div className="absolute -top-16 -left-16 w-64 h-64 rounded-full bg-white/5 pointer-events-none" />
+      <div className="absolute -bottom-16 -right-16 w-72 h-72 rounded-full bg-white/5 pointer-events-none" />
+
       <div className="relative max-w-2xl mx-auto">
-        <p className="text-primary-100 text-sm font-semibold uppercase tracking-widest mb-3">For service providers</p>
+        <SectionBadge>For providers</SectionBadge>
         <h2 className="text-3xl font-extrabold text-white mb-3">Ready to grow your business?</h2>
-        <p className="text-primary-100 mb-8 text-lg">
-          Join providers already earning on Surama.net. List your first service free.
+        <p className="text-primary-100 mb-8 text-lg leading-relaxed">
+          Join providers already earning on Surama.net.<br className="hidden sm:block" /> List your first service free.
         </p>
-        <Link to="/register"
-          className="inline-block bg-white text-primary-700 hover:bg-primary-50 px-8 py-4 rounded-xl font-bold transition-colors shadow-md text-sm"
+        <Link
+          to="/register"
+          className="inline-block bg-white text-primary-700 hover:bg-primary-50 px-8 py-4 rounded-xl font-bold transition-colors shadow-lg text-sm"
         >
           Start offering services →
         </Link>
@@ -476,14 +520,52 @@ function CTABanner() {
 // ─── Footer ───────────────────────────────────────────────────────────────────
 function Footer() {
   return (
-    <footer className="bg-gray-900 text-gray-400 py-10 px-6">
-      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-        <img src="/logo-white.png" alt="Surama.net" className="h-9 w-auto" />
-        <span className="text-sm">© 2025 Surama.net. Built for Guyana.</span>
-        <div className="flex gap-5 text-sm">
-          <a href="#" className="hover:text-white transition-colors">Privacy</a>
-          <a href="#" className="hover:text-white transition-colors">Terms</a>
-          <a href="#" className="hover:text-white transition-colors">Contact</a>
+    <footer className="bg-gray-900 text-gray-400 py-14 px-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-10 pb-10 mb-8 border-b border-gray-800">
+          {/* Brand */}
+          <div className="col-span-2 md:col-span-1">
+            <img src="/logo-white.png" alt="Surama.net" className="h-9 w-auto mb-4" />
+            <p className="text-sm text-gray-500 leading-relaxed">
+              Guyana's home for local services. Find trusted professionals or list your own — free.
+            </p>
+          </div>
+
+          {/* Explore */}
+          <div>
+            <h4 className="text-gray-200 text-sm font-semibold mb-4 uppercase tracking-wide">Explore</h4>
+            <ul className="space-y-3 text-sm">
+              <li><a href="#categories" className="hover:text-white transition-colors">All Categories</a></li>
+              <li><a href="#listings"   className="hover:text-white transition-colors">Browse Services</a></li>
+              <li><a href="#how-it-works" className="hover:text-white transition-colors">How it Works</a></li>
+            </ul>
+          </div>
+
+          {/* Providers */}
+          <div>
+            <h4 className="text-gray-200 text-sm font-semibold mb-4 uppercase tracking-wide">Providers</h4>
+            <ul className="space-y-3 text-sm">
+              <li><Link to="/register" className="hover:text-white transition-colors">Become a Provider</Link></li>
+              <li><Link to="/provider/listings/create" className="hover:text-white transition-colors">Post a Service</Link></li>
+              <li><Link to="/login"    className="hover:text-white transition-colors">Provider Login</Link></li>
+            </ul>
+          </div>
+
+          {/* Company */}
+          <div>
+            <h4 className="text-gray-200 text-sm font-semibold mb-4 uppercase tracking-wide">Company</h4>
+            <ul className="space-y-3 text-sm">
+              <li><a href="#" className="hover:text-white transition-colors">About Surama</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Contact Us</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600">
+          <span>© 2025 Surama.net — All rights reserved.</span>
+          <span className="flex items-center gap-1.5">🇬🇾 Built for Guyana</span>
         </div>
       </div>
     </footer>
@@ -535,7 +617,7 @@ export default function HomePage() {
     listingsRef.current?.scrollIntoView({ behavior: 'smooth' })
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <Navbar onBrowse={scrollToListings} />
       <HeroSlider onBrowse={scrollToListings} />
       <TrustStrip />
