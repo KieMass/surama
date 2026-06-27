@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { db, auth } from '../../firebase'
+import { asset } from '../../lib/asset'
 
 const GRADIENT = 'linear-gradient(135deg, #ff5a5f 0%, #e8464b 55%, #c93338 100%)'
 
@@ -36,7 +37,7 @@ export default function MyListings() {
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
         <Link to="/">
-          <img src="/logo-dark.png" alt="Surama.net" className="h-10 w-auto" />
+          <img src={asset('logo-dark.png')} alt="Surama.net" className="h-10 w-auto" />
         </Link>
         <Link
           to="/provider/listings/create"

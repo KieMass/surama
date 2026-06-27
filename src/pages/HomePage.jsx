@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
+import { asset } from '../lib/asset'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ const SLIDES = [
     badge: '🇬🇾  Guyana\'s Service Marketplace',
     headline: 'Hire our Experts to get your services done',
     sub: 'Work with talented local people at affordable prices to get the most out of your time and budget on a secure platform.',
-    image: '/hero-1.png',
+    image: asset('hero-1.png'),
     cta: 'Browse Services',
     ctaScroll: true,
   },
@@ -27,7 +28,7 @@ const SLIDES = [
     badge: '✓  Verified Local Providers',
     headline: 'Find skilled professionals right in your community',
     sub: 'From cleaning to IT support — trusted providers across Guyana are ready to help when you need them.',
-    image: '/hero-2.png',
+    image: asset('hero-2.png'),
     cta: 'Explore Categories',
     ctaScroll: true,
   },
@@ -35,7 +36,7 @@ const SLIDES = [
     badge: '💰  Affordable Rates',
     headline: 'Quality services at prices that work for everyone',
     sub: 'Compare providers, see real pricing upfront, and choose the best fit for your needs and budget.',
-    image: '/hero-3.png',
+    image: asset('hero-3.png'),
     cta: 'Get Started',
     ctaScroll: true,
   },
@@ -43,7 +44,7 @@ const SLIDES = [
     badge: '🚀  For Service Providers',
     headline: 'Grow your business on Surama.net',
     sub: 'Join providers already earning by listing your services free. Reach clients across Guyana today.',
-    image: '/hero-4.png',
+    image: asset('hero-4.png'),
     cta: 'Become a Provider →',
     ctaLink: '/register',
   },
@@ -98,7 +99,7 @@ function Navbar({ onBrowse }) {
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
         <Link to="/">
-          <img src="/logo-dark.png" alt="Surama.net" className="h-10 w-auto" />
+          <img src={asset('logo-dark.png')} alt="Surama.net" className="h-10 w-auto" />
         </Link>
 
         <div className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600">
@@ -525,7 +526,7 @@ function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-10 pb-10 mb-8 border-b border-gray-800">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <img src="/logo-white.png" alt="Surama.net" className="h-9 w-auto mb-4" />
+            <img src={asset('logo-white.png')} alt="Surama.net" className="h-9 w-auto mb-4" />
             <p className="text-sm text-gray-500 leading-relaxed">
               Guyana's home for local services. Find trusted professionals or list your own — free.
             </p>

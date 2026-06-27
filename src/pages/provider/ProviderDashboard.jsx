@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
+import { asset } from '../../lib/asset'
 
 const QUICK_LINKS = [
   {
@@ -42,7 +43,7 @@ export default function ProviderDashboard() {
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <Link to="/">
-          <img src="/logo-dark.png" alt="Surama.net" className="h-10 w-auto" />
+          <img src={asset('logo-dark.png')} alt="Surama.net" className="h-10 w-auto" />
         </Link>
         <button
           onClick={handleSignOut}

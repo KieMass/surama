@@ -4,6 +4,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
+import { asset } from '../../lib/asset'
 
 const ALL = 'All'
 
@@ -46,7 +47,7 @@ export default function ConsumerDashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
-        <img src="/logo-dark.png" alt="Surama.net" className="h-10 w-auto" />
+        <img src={asset('logo-dark.png')} alt="Surama.net" className="h-10 w-auto" />
         <button
           onClick={handleSignOut}
           className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"

@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
+import { asset } from '../lib/asset'
 
 export default function ServiceDetail() {
   const { id } = useParams()
@@ -7,7 +8,7 @@ export default function ServiceDetail() {
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-100 px-6 py-4">
         <Link to="/">
-          <img src="/logo-dark.png" alt="Surama.net" className="h-10 w-auto" />
+          <img src={asset('logo-dark.png')} alt="Surama.net" className="h-10 w-auto" />
         </Link>
       </nav>
       <div className="max-w-2xl mx-auto px-6 py-20 text-center">

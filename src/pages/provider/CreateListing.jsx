@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage, auth } from '../../firebase'
+import { asset } from '../../lib/asset'
 
 const CATEGORIES = [
   'Cleaning', 'Plumbing', 'Electrical', 'Carpentry',
@@ -84,7 +85,7 @@ export default function CreateListing() {
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
         <Link to="/">
-          <img src="/logo-dark.png" alt="Surama.net" className="h-10 w-auto" />
+          <img src={asset('logo-dark.png')} alt="Surama.net" className="h-10 w-auto" />
         </Link>
         <button
           type="button"

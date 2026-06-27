@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth'
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
+import { asset } from '../lib/asset'
 
 const ROLE_INFO = {
   consumer: {
@@ -60,7 +61,7 @@ export default function Register() {
         <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full bg-white/5 pointer-events-none" />
 
         <Link to="/">
-          <img src="/logo-white.png" alt="Surama.net" className="h-9 w-auto relative z-10" />
+          <img src={asset('logo-white.png')} alt="Surama.net" className="h-9 w-auto relative z-10" />
         </Link>
 
         <div className="relative z-10">
@@ -87,7 +88,7 @@ export default function Register() {
       <div className="flex-1 flex flex-col">
         <div className="lg:hidden px-6 py-4" style={{ background: '#ff5a5f' }}>
           <Link to="/">
-            <img src="/logo-white.png" alt="Surama.net" className="h-8 w-auto" />
+            <img src={asset('logo-white.png')} alt="Surama.net" className="h-8 w-auto" />
           </Link>
         </div>
 
