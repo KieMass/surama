@@ -12,7 +12,7 @@ import {
   STATUS_LABEL,
   STATUS_BADGE,
 } from '../../lib/requests'
-import { createReview, getReviewedRequestIds } from '../../lib/reviews'
+import { createReview, updateReview, getReviewedRequestIds } from '../../lib/reviews'
 
 function formatDate(timestamp) {
   if (!timestamp?.toDate) return ''
@@ -27,11 +27,13 @@ export default function MyRequests() {
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [cancellingId, setCancellingId] = useState(null)
-  const [reviewedIds, setReviewedIds] = useState(new Set())
+  // Map<requestId, { id: reviewId, rating, comment }>
+  const [reviewMap, setReviewMap] = useState(new Map())
   const [reviewingId, setReviewingId] = useState(null)
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewComment, setReviewComment] = useState('')
   const [submittingReview, setSubmittingReview] = useState(false)
+  const [reviewSuccessId, setReviewSuccessId] = useState(null)
 
   const loadRequests = async () => {
     setLoading(true)
@@ -41,18 +43,12 @@ export default function MyRequests() {
     const completedIds = sorted
       .filter((r) => r.status === REQUEST_STATUS.COMPLETED)
       .map((r) => r.id)
-    setReviewedIds(await getReviewedRequestIds(completedIds))
+    setReviewMap(await getReviewedRequestIds(completedIds))
     setLoading(false)
   }
 
   useEffect(() => {
-    let cancelled = false
-    getRequestsForConsumer(auth.currentUser.uid).then((data) => {
-      if (cancelled) return
-      setRequests(sortByNewest(data))
-      setLoading(false)
-    })
-    return () => { cancelled = true }
+    loadRequests()
   }, [])
 
   const handleCancel = async (id) => {
@@ -62,21 +58,48 @@ export default function MyRequests() {
     setCancellingId(null)
   }
 
+  const openReviewForm = (r) => {
+    const existing = reviewMap.get(r.id)
+    setReviewRating(existing?.rating ?? 5)
+    setReviewComment(existing?.comment ?? '')
+    setReviewingId(r.id)
+  }
+
   const handleSubmitReview = async (r) => {
     setSubmittingReview(true)
     try {
-      await createReview({
-        service: { id: r.serviceId, providerId: r.providerId },
-        requestId: r.id,
-        consumerId: auth.currentUser.uid,
-        consumerName: userDoc?.name ?? '',
-        rating: reviewRating,
-        comment: reviewComment,
-      })
-      setReviewedIds((prev) => new Set(prev).add(r.id))
+      const existing = reviewMap.get(r.id)
+      if (existing) {
+        await updateReview(existing.id, r.serviceId, {
+          rating: reviewRating,
+          comment: reviewComment,
+          oldRating: existing.rating,
+        })
+        setReviewMap((prev) => {
+          const next = new Map(prev)
+          next.set(r.id, { id: existing.id, rating: reviewRating, comment: reviewComment })
+          return next
+        })
+      } else {
+        const reviewId = await createReview({
+          service: { id: r.serviceId, providerId: r.providerId },
+          requestId: r.id,
+          consumerId: auth.currentUser.uid,
+          consumerName: userDoc?.name ?? '',
+          rating: reviewRating,
+          comment: reviewComment,
+        })
+        setReviewMap((prev) => {
+          const next = new Map(prev)
+          next.set(r.id, { id: reviewId, rating: reviewRating, comment: reviewComment })
+          return next
+        })
+      }
       setReviewingId(null)
       setReviewComment('')
       setReviewRating(5)
+      setReviewSuccessId(r.id)
+      setTimeout(() => setReviewSuccessId((cur) => (cur === r.id ? null : cur)), 3000)
     } finally {
       setSubmittingReview(false)
     }
@@ -94,9 +117,14 @@ export default function MyRequests() {
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <Link to="/"><img src={asset('logo-dark.png')} alt="Surama.net" className="h-10 w-auto" /></Link>
-        <button onClick={handleSignOut} className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
-          Sign out
-        </button>
+        <div className="flex items-center gap-5">
+          <Link to="/inbox" className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
+            💬 Inbox
+          </Link>
+          <button onClick={handleSignOut} className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
+            Sign out
+          </button>
+        </div>
       </nav>
 
       {/* Header */}
@@ -145,116 +173,137 @@ export default function MyRequests() {
         )}
 
         <div className="space-y-4">
-          {requests.map((r) => (
-            <div key={r.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                    <span className="text-xs text-primary-600 font-bold uppercase tracking-wide">
-                      {r.serviceCategory}
-                    </span>
-                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[r.status]}`}>
-                      {STATUS_LABEL[r.status]}
-                    </span>
+          {requests.map((r) => {
+            const isReviewed = reviewMap.has(r.id)
+            const isReviewing = reviewingId === r.id
+            const isSuccessFlash = reviewSuccessId === r.id
+            return (
+              <div key={r.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <span className="text-xs text-primary-600 font-bold uppercase tracking-wide">
+                        {r.serviceCategory}
+                      </span>
+                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[r.status]}`}>
+                        {STATUS_LABEL[r.status]}
+                      </span>
+                    </div>
+                    <Link
+                      to={`/services/${r.serviceId}`}
+                      className="font-semibold text-gray-900 hover:text-primary-600 transition-colors"
+                    >
+                      {r.serviceTitle}
+                    </Link>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {r.currency} {r.price?.toLocaleString()}
+                      {r.preferredDate && ` · Preferred: ${r.preferredDate}`}
+                    </p>
+                    {r.message && (
+                      <p className="text-sm text-gray-600 mt-2 bg-gray-50 rounded-xl p-3">{r.message}</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-2">Sent {formatDate(r.createdAt)}</p>
                   </div>
-                  <Link
-                    to={`/services/${r.serviceId}`}
-                    className="font-semibold text-gray-900 hover:text-primary-600 transition-colors"
-                  >
-                    {r.serviceTitle}
-                  </Link>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {r.currency} {r.price?.toLocaleString()}
-                    {r.preferredDate && ` · Preferred: ${r.preferredDate}`}
-                  </p>
-                  {r.message && (
-                    <p className="text-sm text-gray-600 mt-2 bg-gray-50 rounded-xl p-3">{r.message}</p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-2">Sent {formatDate(r.createdAt)}</p>
+
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                    {r.status === REQUEST_STATUS.PENDING && (
+                      <button
+                        onClick={() => handleCancel(r.id)}
+                        disabled={cancellingId === r.id}
+                        className="text-xs font-semibold text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {cancellingId === r.id ? 'Cancelling…' : 'Cancel request'}
+                      </button>
+                    )}
+
+                    {r.status === REQUEST_STATUS.ACCEPTED && (
+                      <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 text-center">
+                        Provider accepted 🎉<br />They'll be in touch to arrange payment.
+                      </div>
+                    )}
+
+                    {r.status === REQUEST_STATUS.COMPLETED && !isReviewed && !isReviewing && (
+                      <button
+                        onClick={() => openReviewForm(r)}
+                        className="text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 px-3 py-2 rounded-lg transition-colors"
+                      >
+                        ⭐ Leave a review
+                      </button>
+                    )}
+
+                    {r.status === REQUEST_STATUS.COMPLETED && isReviewed && !isReviewing && (
+                      <div className="flex flex-col items-end gap-1.5">
+                        {isSuccessFlash && (
+                          <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5">
+                            ✅ Thank you for your review!
+                          </span>
+                        )}
+                        <button
+                          onClick={() => openReviewForm(r)}
+                          className="text-xs font-semibold text-primary-600 border border-primary-200 hover:bg-primary-50 px-3 py-2 rounded-lg transition-colors"
+                        >
+                          ✏️ Update review
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {r.status === REQUEST_STATUS.PENDING && (
-                  <button
-                    onClick={() => handleCancel(r.id)}
-                    disabled={cancellingId === r.id}
-                    className="text-xs font-semibold text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
-                  >
-                    {cancellingId === r.id ? 'Cancelling…' : 'Cancel request'}
-                  </button>
-                )}
-
-                {r.status === REQUEST_STATUS.ACCEPTED && (
-                  <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 flex-shrink-0 text-center">
-                    Provider accepted 🎉<br />They'll be in touch to arrange payment.
-                  </div>
-                )}
-
-                {r.status === REQUEST_STATUS.COMPLETED && !reviewedIds.has(r.id) && reviewingId !== r.id && (
-                  <button
-                    onClick={() => setReviewingId(r.id)}
-                    className="text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 px-3 py-2 rounded-lg transition-colors flex-shrink-0"
-                  >
-                    ⭐ Leave a review
-                  </button>
-                )}
-
-                {r.status === REQUEST_STATUS.COMPLETED && reviewedIds.has(r.id) && (
-                  <span className="text-xs text-primary-700 bg-primary-50 border border-primary-100 rounded-lg px-3 py-2 flex-shrink-0">
-                    ✅ Reviewed
-                  </span>
-                )}
-              </div>
-
-              {r.status === REQUEST_STATUS.COMPLETED && reviewingId === r.id && (
-                <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Your rating</label>
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => setReviewRating(n)}
-                          className={`text-2xl leading-none transition-colors ${n <= reviewRating ? 'text-amber-400' : 'text-gray-200'}`}
-                        >
-                          ★
-                        </button>
-                      ))}
+                {/* Inline review form */}
+                {r.status === REQUEST_STATUS.COMPLETED && isReviewing && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                    <p className="text-sm font-semibold text-gray-700">
+                      {isReviewed ? 'Update your review' : 'Leave a review'}
+                    </p>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">Your rating</label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setReviewRating(n)}
+                            className={`text-2xl leading-none transition-colors ${n <= reviewRating ? 'text-amber-400' : 'text-gray-200'}`}
+                          >
+                            ★
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                        Comment <span className="text-gray-400 font-normal">(optional)</span>
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        placeholder="How did it go?"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition resize-none"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setReviewingId(null); setReviewComment(''); setReviewRating(5) }}
+                        className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSubmitReview(r)}
+                        disabled={submittingReview}
+                        className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
+                      >
+                        {submittingReview ? 'Submitting…' : isReviewed ? 'Update review' : 'Submit review'}
+                      </button>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                      Comment <span className="text-gray-400 font-normal">(optional)</span>
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={reviewComment}
-                      onChange={(e) => setReviewComment(e.target.value)}
-                      placeholder="How did it go?"
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition resize-none"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { setReviewingId(null); setReviewComment(''); setReviewRating(5) }}
-                      className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSubmitReview(r)}
-                      disabled={submittingReview}
-                      className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
-                    >
-                      {submittingReview ? 'Submitting…' : 'Submit review'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>

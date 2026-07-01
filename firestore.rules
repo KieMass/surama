@@ -43,9 +43,9 @@ service cloud.firestore {
 
     // ── Reviews ────────────────────────────────────────────────────────────
     // Anyone can read reviews (shown publicly on service detail pages).
-    // Only authenticated consumers can create a review, and only for
-    // themselves. Rating must be an integer between 1 and 5.
-    // Reviews are permanent — no updates or deletes allowed.
+    // Only authenticated consumers can create a review for themselves.
+    // The original reviewer may update only rating and comment (not core
+    // identity fields). Deletes are not allowed.
     match /reviews/{reviewId} {
       allow read: if true;
 
@@ -55,7 +55,17 @@ service cloud.firestore {
                     && request.resource.data.rating >= 1
                     && request.resource.data.rating <= 5;
 
-      allow update, delete: if false;
+      allow update: if request.auth != null
+                    && resource.data.consumerId == request.auth.uid
+                    && request.resource.data.rating is int
+                    && request.resource.data.rating >= 1
+                    && request.resource.data.rating <= 5
+                    && request.resource.data.serviceId  == resource.data.serviceId
+                    && request.resource.data.providerId == resource.data.providerId
+                    && request.resource.data.requestId  == resource.data.requestId
+                    && request.resource.data.consumerId == resource.data.consumerId;
+
+      allow delete: if false;
     }
 
     // ── Conversations & Messages ────────────────────────────────────────────

@@ -59,12 +59,16 @@ export function subscribeToMessages(conversationId, callback) {
 }
 
 export function subscribeToConversations(userId, callback) {
+  // No orderBy here — combining array-contains with orderBy needs a composite
+  // index. Sort client-side instead so the query works without extra setup.
   const q = query(
     collection(db, 'conversations'),
-    where('participants', 'array-contains', userId),
-    orderBy('lastMessageAt', 'desc')
+    where('participants', 'array-contains', userId)
   )
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    const sorted = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.lastMessageAt?.toMillis?.() ?? 0) - (a.lastMessageAt?.toMillis?.() ?? 0))
+    callback(sorted)
   })
 }
