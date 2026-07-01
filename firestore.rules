@@ -41,5 +41,22 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Reviews ────────────────────────────────────────────────────────────
+    // Anyone can read reviews (shown publicly on service detail pages).
+    // Only authenticated consumers can create a review, and only for
+    // themselves. Rating must be an integer between 1 and 5.
+    // Reviews are permanent — no updates or deletes allowed.
+    match /reviews/{reviewId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+                    && request.resource.data.consumerId == request.auth.uid
+                    && request.resource.data.rating is int
+                    && request.resource.data.rating >= 1
+                    && request.resource.data.rating <= 5;
+
+      allow update, delete: if false;
+    }
+
   }
 }
