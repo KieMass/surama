@@ -7,13 +7,14 @@ import { asset } from '../../lib/asset'
 import {
   getRequestsForProvider,
   updateRequestStatus,
+  updateRequestDetails,
   sortByNewest,
   REQUEST_STATUS,
   STATUS_LABEL,
   STATUS_BADGE,
 } from '../../lib/requests'
 
-const FILTERS = ['All', 'Pending', 'Accepted', 'Declined', 'Completed', 'Cancelled']
+const FILTERS = ['All', 'Pending', 'Accepted', 'Completed', 'Declined', 'Cancelled']
 
 function formatDate(timestamp) {
   if (!timestamp?.toDate) return ''
@@ -22,15 +23,167 @@ function formatDate(timestamp) {
   })
 }
 
+function JobDetailPanel({ r, onStatusChange, busyId, onSaved }) {
+  const [notes, setNotes]             = useState(r.providerNotes ?? '')
+  const [scheduledDate, setScheduled] = useState(r.scheduledDate ?? r.preferredDate ?? '')
+  const [saving, setSaving]           = useState(false)
+  const [saved, setSaved]             = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    await updateRequestDetails(r.id, { providerNotes: notes, scheduledDate })
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+    onSaved({ ...r, providerNotes: notes, scheduledDate })
+  }
+
+  const isPending   = r.status === REQUEST_STATUS.PENDING
+  const isAccepted  = r.status === REQUEST_STATUS.ACCEPTED
+  const isCompleted = r.status === REQUEST_STATUS.COMPLETED
+
+  return (
+    <div className="border-t border-gray-100 bg-gray-50 px-5 py-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+        {/* Left — job info */}
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Service</p>
+            <p className="text-sm font-semibold text-gray-800">{r.serviceTitle}</p>
+            <p className="text-xs text-primary-600 font-medium">{r.serviceCategory}</p>
+          </div>
+
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Customer</p>
+            <p className="text-sm font-semibold text-gray-800">{r.consumerName || 'Customer'}</p>
+            {(isAccepted || isCompleted) && r.consumerEmail && (
+              <a href={`mailto:${r.consumerEmail}`}
+                className="text-xs text-primary-600 hover:underline">{r.consumerEmail}</a>
+            )}
+          </div>
+
+          {r.message && (
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Message from customer</p>
+              <p className="text-sm text-gray-600 bg-white border border-gray-100 rounded-xl p-3 leading-relaxed">
+                {r.message}
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            {r.preferredDate && (
+              <div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Requested date</p>
+                <p className="text-sm text-gray-700">{r.preferredDate}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Price</p>
+              <p className="text-sm font-semibold text-gray-800">{r.currency} {r.price?.toLocaleString()}</p>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Received</p>
+            <p className="text-sm text-gray-500">{formatDate(r.createdAt)}</p>
+          </div>
+        </div>
+
+        {/* Right — editable fields + actions */}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">
+              Confirmed Date
+            </label>
+            <input
+              type="date"
+              value={scheduledDate}
+              onChange={(e) => setScheduled(e.target.value)}
+              disabled={isCompleted}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition disabled:bg-gray-100 disabled:text-gray-400"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">
+              Job Notes <span className="text-gray-300 font-normal normal-case tracking-normal">(internal — customer won't see this)</span>
+            </label>
+            <textarea
+              rows={4}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={isCompleted}
+              placeholder="Add details about the job, materials needed, access info, agreed scope…"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition resize-none disabled:bg-gray-100 disabled:text-gray-400"
+            />
+          </div>
+
+          {!isCompleted && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full border border-primary-200 text-primary-600 hover:bg-primary-50 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Details'}
+            </button>
+          )}
+
+          {/* Status actions */}
+          <div className="pt-1 space-y-2">
+            {isPending && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onStatusChange(r.id, REQUEST_STATUS.DECLINED)}
+                  disabled={busyId === r.id}
+                  className="flex-1 text-sm font-semibold text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 py-2.5 rounded-xl transition-colors disabled:opacity-50"
+                >
+                  Decline
+                </button>
+                <button
+                  onClick={() => onStatusChange(r.id, REQUEST_STATUS.ACCEPTED)}
+                  disabled={busyId === r.id}
+                  className="flex-1 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 py-2.5 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
+                >
+                  {busyId === r.id ? 'Saving…' : 'Accept Job'}
+                </button>
+              </div>
+            )}
+
+            {isAccepted && (
+              <button
+                onClick={() => onStatusChange(r.id, REQUEST_STATUS.COMPLETED)}
+                disabled={busyId === r.id}
+                className="w-full text-sm font-bold text-white py-3 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #22c55e, #15803d)' }}
+              >
+                {busyId === r.id ? 'Marking…' : '✓ Mark Job as Completed'}
+              </button>
+            )}
+
+            {isCompleted && (
+              <div className="flex items-center justify-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm font-semibold py-3 rounded-xl">
+                ✅ Job Completed
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Requests() {
   const { userDoc } = useAuth()
   const navigate = useNavigate()
   const [requests, setRequests] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('Pending')
-  const [busyId, setBusyId] = useState(null)
+  const [loading, setLoading]   = useState(true)
+  const [filter, setFilter]     = useState('Pending')
+  const [busyId, setBusyId]     = useState(null)
+  const [expandedId, setExpandedId] = useState(null)
 
-  const loadRequests = async () => {
+  const load = async () => {
     setLoading(true)
     const data = await getRequestsForProvider(auth.currentUser.uid)
     setRequests(sortByNewest(data))
@@ -50,8 +203,12 @@ export default function Requests() {
   const handleStatusChange = async (id, status) => {
     setBusyId(id)
     await updateRequestStatus(id, status)
-    await loadRequests()
+    await load()
     setBusyId(null)
+  }
+
+  const handleSaved = (updated) => {
+    setRequests((prev) => prev.map((r) => r.id === updated.id ? updated : r))
   }
 
   const handleSignOut = async () => {
@@ -60,9 +217,7 @@ export default function Requests() {
   }
 
   const pendingCount = requests.filter((r) => r.status === REQUEST_STATUS.PENDING).length
-
   const filtered = requests.filter((r) => filter === 'All' || STATUS_LABEL[r.status] === filter)
-
   const firstName = userDoc?.name?.split(' ')[0] ?? 'there'
 
   return (
@@ -83,7 +238,7 @@ export default function Requests() {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <p className="text-primary-100 text-sm font-medium mb-1">Hello, {firstName}</p>
-              <h1 className="text-3xl font-extrabold text-white mb-1">Incoming Requests</h1>
+              <h1 className="text-3xl font-extrabold text-white mb-1">Job Requests</h1>
               <p className="text-primary-100 text-sm">
                 {pendingCount > 0
                   ? `${pendingCount} request${pendingCount !== 1 ? 's' : ''} waiting on you`
@@ -115,6 +270,11 @@ export default function Requests() {
               }`}
             >
               {f}
+              {f === 'Pending' && pendingCount > 0 && (
+                <span className="ml-1.5 bg-white text-primary-600 text-xs font-bold px-1.5 py-0.5 rounded-full">
+                  {pendingCount}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -133,68 +293,54 @@ export default function Requests() {
           </div>
         )}
 
-        <div className="space-y-4">
-          {filtered.map((r) => (
-            <div key={r.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                    <span className="text-xs text-primary-600 font-bold uppercase tracking-wide">
-                      {r.serviceCategory}
-                    </span>
-                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[r.status]}`}>
-                      {STATUS_LABEL[r.status]}
-                    </span>
-                  </div>
-                  <p className="font-semibold text-gray-900">{r.serviceTitle}</p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    From <span className="font-medium text-gray-700">{r.consumerName || 'A customer'}</span>
-                    {r.preferredDate && ` · Preferred: ${r.preferredDate}`}
-                  </p>
-                  {r.message && (
-                    <p className="text-sm text-gray-600 mt-2 bg-gray-50 rounded-xl p-3">{r.message}</p>
-                  )}
+        <div className="space-y-3">
+          {filtered.map((r) => {
+            const isExpanded = expandedId === r.id
+            return (
+              <div key={r.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                {/* Summary row — click to expand */}
+                <button
+                  onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                  className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors"
+                >
+                  {/* Expand chevron */}
+                  <span className={`text-gray-300 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
 
-                  {r.status !== REQUEST_STATUS.PENDING && (
-                    <p className="text-xs text-gray-500 mt-3 bg-primary-50 border border-primary-100 rounded-lg px-3 py-2 inline-block">
-                      📧 {r.consumerEmail}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <span className="text-xs text-primary-600 font-bold uppercase tracking-wide">
+                        {r.serviceCategory}
+                      </span>
+                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[r.status]}`}>
+                        {STATUS_LABEL[r.status]}
+                      </span>
+                    </div>
+                    <p className="font-semibold text-gray-900 truncate">{r.serviceTitle}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {r.consumerName || 'Customer'}
+                      {r.scheduledDate && ` · 📅 ${r.scheduledDate}`}
+                      {!r.scheduledDate && r.preferredDate && ` · Requested: ${r.preferredDate}`}
                     </p>
-                  )}
-
-                  <p className="text-xs text-gray-400 mt-2">Requested {formatDate(r.createdAt)}</p>
-                </div>
-
-                {r.status === REQUEST_STATUS.PENDING && (
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => handleStatusChange(r.id, REQUEST_STATUS.DECLINED)}
-                      disabled={busyId === r.id}
-                      className="text-xs font-semibold text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      Decline
-                    </button>
-                    <button
-                      onClick={() => handleStatusChange(r.id, REQUEST_STATUS.ACCEPTED)}
-                      disabled={busyId === r.id}
-                      className="text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      {busyId === r.id ? 'Saving…' : 'Accept'}
-                    </button>
                   </div>
-                )}
 
-                {r.status === REQUEST_STATUS.ACCEPTED && (
-                  <button
-                    onClick={() => handleStatusChange(r.id, REQUEST_STATUS.COMPLETED)}
-                    disabled={busyId === r.id}
-                    className="text-xs font-semibold text-white bg-gray-800 hover:bg-gray-900 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
-                  >
-                    Mark completed
-                  </button>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="text-sm font-bold text-gray-800">{r.currency} {r.price?.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400">{formatDate(r.createdAt)}</p>
+                  </div>
+                </button>
+
+                {/* Expanded detail panel */}
+                {isExpanded && (
+                  <JobDetailPanel
+                    r={r}
+                    onStatusChange={handleStatusChange}
+                    busyId={busyId}
+                    onSaved={handleSaved}
+                  />
                 )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>

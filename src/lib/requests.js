@@ -87,6 +87,15 @@ export async function updateRequestStatus(requestId, status) {
   })
 }
 
+/** Update provider-editable job details (notes and confirmed date). */
+export async function updateRequestDetails(requestId, { providerNotes, scheduledDate }) {
+  return updateDoc(doc(db, 'requests', requestId), {
+    providerNotes,
+    scheduledDate,
+    updatedAt: serverTimestamp(),
+  })
+}
+
 /** Sort newest first — Firestore timestamps expose .toMillis(); fall back gracefully. */
 export function sortByNewest(requests) {
   return [...requests].sort((a, b) => {
