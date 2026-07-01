@@ -85,7 +85,10 @@ export default function ServiceDetail() {
       setRequestSent(true)
       setShowForm(false)
     } catch (err) {
-      setSubmitError(err.message)
+      const msg = err?.code === 'permission-denied'
+        ? 'Unable to send request right now — please try again shortly.'
+        : err.message
+      setSubmitError(msg)
     } finally {
       setSubmitting(false)
     }

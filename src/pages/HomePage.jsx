@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom'
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { asset } from '../lib/asset'
+import {
+  SprayCan, Wrench, Zap, Hammer, BookOpen, ChefHat,
+  Camera, Sparkles, Leaf, Laptop, Car, PartyPopper,
+} from 'lucide-react'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -51,18 +55,18 @@ const SLIDES = [
 ]
 
 const FEATURED_CATEGORIES = [
-  { name: 'Cleaning',          emoji: '🧹', from: '#0ea5e9', to: '#0369a1' },
-  { name: 'Plumbing',          emoji: '🔧', from: '#64748b', to: '#334155' },
-  { name: 'Electrical',        emoji: '⚡', from: '#f59e0b', to: '#b45309' },
-  { name: 'Carpentry',         emoji: '🪚', from: '#92400e', to: '#78350f' },
-  { name: 'Tutoring',          emoji: '📚', from: '#8b5cf6', to: '#6d28d9' },
-  { name: 'Catering',          emoji: '🍽️', from: '#f97316', to: '#c2410c' },
-  { name: 'Photography',       emoji: '📸', from: '#ec4899', to: '#be185d' },
-  { name: 'Beauty & Wellness', emoji: '💆', from: '#e879f9', to: '#a21caf' },
-  { name: 'Landscaping',       emoji: '🌿', from: '#22c55e', to: '#15803d' },
-  { name: 'IT Support',        emoji: '💻', from: '#6366f1', to: '#4338ca' },
-  { name: 'Transportation',    emoji: '🚗', from: '#3b82f6', to: '#1d4ed8' },
-  { name: 'Event Planning',    emoji: '🎉', from: '#a855f7', to: '#7e22ce' },
+  { name: 'Cleaning',          Icon: SprayCan,    from: '#0ea5e9', to: '#0369a1' },
+  { name: 'Plumbing',          Icon: Wrench,      from: '#64748b', to: '#334155' },
+  { name: 'Electrical',        Icon: Zap,         from: '#f59e0b', to: '#b45309' },
+  { name: 'Carpentry',         Icon: Hammer,      from: '#92400e', to: '#78350f' },
+  { name: 'Tutoring',          Icon: BookOpen,    from: '#8b5cf6', to: '#6d28d9' },
+  { name: 'Catering',          Icon: ChefHat,     from: '#f97316', to: '#c2410c' },
+  { name: 'Photography',       Icon: Camera,      from: '#ec4899', to: '#be185d' },
+  { name: 'Beauty & Wellness', Icon: Sparkles,    from: '#e879f9', to: '#a21caf' },
+  { name: 'Landscaping',       Icon: Leaf,        from: '#22c55e', to: '#15803d' },
+  { name: 'IT Support',        Icon: Laptop,      from: '#6366f1', to: '#4338ca' },
+  { name: 'Transportation',    Icon: Car,         from: '#3b82f6', to: '#1d4ed8' },
+  { name: 'Event Planning',    Icon: PartyPopper, from: '#a855f7', to: '#7e22ce' },
 ]
 
 const TRUST = [
@@ -303,16 +307,26 @@ function CategoryShowcase({ onSelect, listingsRef }) {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {FEATURED_CATEGORIES.map((cat) => (
+          {FEATURED_CATEGORIES.map(({ name, Icon, from, to }) => (
             <button
-              key={cat.name}
-              onClick={() => scrollAndFilter(cat.name)}
-              className="group relative rounded-2xl overflow-hidden text-left p-5 shadow-sm hover:shadow-lg transition-all hover:-translate-y-0.5"
-              style={{ background: `linear-gradient(135deg, ${cat.from}, ${cat.to})` }}
+              key={name}
+              onClick={() => scrollAndFilter(name)}
+              className="group relative rounded-2xl overflow-hidden text-left p-5 shadow-sm hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
+              style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
             >
-              <span className="text-3xl mb-3 block">{cat.emoji}</span>
-              <p className="text-white font-semibold text-sm leading-tight">{cat.name}</p>
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-2xl" />
+              {/* Large ghosted background icon */}
+              <div className="absolute -bottom-3 -right-3 opacity-[0.15] group-hover:opacity-[0.22] transition-opacity pointer-events-none">
+                <Icon size={100} strokeWidth={1.5} color="#fff" />
+              </div>
+
+              {/* Foreground content */}
+              <div className="relative z-10">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center mb-4 group-hover:bg-white/30 transition-colors">
+                  <Icon size={20} strokeWidth={2} color="#fff" />
+                </div>
+                <p className="text-white font-bold text-sm leading-tight tracking-wide">{name}</p>
+                <p className="text-white/60 text-xs mt-1 group-hover:text-white/80 transition-colors">Browse →</p>
+              </div>
             </button>
           ))}
         </div>
