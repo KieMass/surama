@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Users ──────────────────────────────────────────────────────────────
+    // Each user can only read and write their own profile document.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Services ───────────────────────────────────────────────────────────
+    // Anyone (including unauthenticated visitors) can read active listings.
+    // Only authenticated providers can create or modify their own listings.
+    match /services/{serviceId} {
+      allow read: if true;
+      allow create: if request.auth != null
+                    && request.resource.data.providerId == request.auth.uid;
+      allow update, delete: if request.auth != null
+                             && resource.data.providerId == request.auth.uid;
+    }
+
+    // ── Requests ───────────────────────────────────────────────────────────
+    // Consumers can create a request for themselves and read their own.
+    // Providers can read and update (but not create) requests where they are
+    // the named provider. No one else may read or write request documents.
+    match /requests/{requestId} {
+      allow create: if request.auth != null
+                    && request.resource.data.consumerId == request.auth.uid;
+
+      allow read: if request.auth != null
+                  && (resource.data.consumerId == request.auth.uid
+                      || resource.data.providerId == request.auth.uid);
+
+      allow update: if request.auth != null
+                    && resource.data.providerId == request.auth.uid
+                    && !("consumerId"  in request.resource.data.diff(resource.data).affectedKeys())
+                    && !("providerId"  in request.resource.data.diff(resource.data).affectedKeys())
+                    && !("serviceId"   in request.resource.data.diff(resource.data).affectedKeys())
+                    && !("consumerEmail" in request.resource.data.diff(resource.data).affectedKeys());
+
+      allow delete: if false;
+    }
+
+  }
+}
