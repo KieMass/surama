@@ -5,6 +5,8 @@ import { db } from '../firebase'
 import { asset } from '../lib/asset'
 import { useAuth } from '../context/AuthContext'
 import { createRequest } from '../lib/requests'
+import { getReviewsForService, averageRating } from '../lib/reviews'
+import StarRating from '../components/StarRating'
 
 function timeAgo(timestamp) {
   if (!timestamp) return ''
@@ -26,6 +28,7 @@ export default function ServiceDetail() {
   const [provider, setProvider] = useState(null)
   const [loading, setLoading]   = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [reviews, setReviews]   = useState([])
 
   const [showForm, setShowForm] = useState(false)
   const [message, setMessage]   = useState('')
@@ -51,6 +54,8 @@ export default function ServiceDetail() {
             // Provider profile unreadable — page still renders without it
           }
         }
+
+        setReviews(await getReviewsForService(id))
       } catch {
         setNotFound(true)
       } finally {
@@ -164,9 +169,14 @@ export default function ServiceDetail() {
               <h1 className="text-3xl font-extrabold text-gray-900 leading-tight mb-2">
                 {service.title}
               </h1>
-              {service.createdAt && (
-                <p className="text-xs text-gray-400">Listed {timeAgo(service.createdAt)}</p>
-              )}
+              <div className="flex items-center gap-3">
+                {averageRating(service) && (
+                  <StarRating rating={averageRating(service)} count={service.ratingCount} size="text-base" />
+                )}
+                {service.createdAt && (
+                  <p className="text-xs text-gray-400">Listed {timeAgo(service.createdAt)}</p>
+                )}
+              </div>
             </div>
 
             {/* Description */}
@@ -207,6 +217,30 @@ export default function ServiceDetail() {
                   </li>
                 ))}
               </ul>
+            </div>
+            {/* Reviews */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-bold text-gray-900 text-lg">Reviews</h2>
+                {averageRating(service) && (
+                  <StarRating rating={averageRating(service)} count={service.ratingCount} size="text-sm" />
+                )}
+              </div>
+              {reviews.length === 0 ? (
+                <p className="text-sm text-gray-400">No reviews yet — be the first to book and leave one.</p>
+              ) : (
+                <div className="space-y-4">
+                  {reviews.map((rv) => (
+                    <div key={rv.id} className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-sm font-semibold text-gray-800">{rv.consumerName || 'Verified customer'}</p>
+                        <span className="text-amber-400 text-sm">{'★'.repeat(rv.rating)}{'☆'.repeat(5 - rv.rating)}</span>
+                      </div>
+                      {rv.comment && <p className="text-sm text-gray-600">{rv.comment}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

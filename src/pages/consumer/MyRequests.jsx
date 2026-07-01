@@ -12,6 +12,7 @@ import {
   STATUS_LABEL,
   STATUS_BADGE,
 } from '../../lib/requests'
+import { createReview, getReviewedRequestIds } from '../../lib/reviews'
 
 function formatDate(timestamp) {
   if (!timestamp?.toDate) return ''
@@ -26,11 +27,21 @@ export default function MyRequests() {
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [cancellingId, setCancellingId] = useState(null)
+  const [reviewedIds, setReviewedIds] = useState(new Set())
+  const [reviewingId, setReviewingId] = useState(null)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewComment, setReviewComment] = useState('')
+  const [submittingReview, setSubmittingReview] = useState(false)
 
   const loadRequests = async () => {
     setLoading(true)
     const data = await getRequestsForConsumer(auth.currentUser.uid)
-    setRequests(sortByNewest(data))
+    const sorted = sortByNewest(data)
+    setRequests(sorted)
+    const completedIds = sorted
+      .filter((r) => r.status === REQUEST_STATUS.COMPLETED)
+      .map((r) => r.id)
+    setReviewedIds(await getReviewedRequestIds(completedIds))
     setLoading(false)
   }
 
@@ -49,6 +60,26 @@ export default function MyRequests() {
     await updateRequestStatus(id, REQUEST_STATUS.CANCELLED)
     await loadRequests()
     setCancellingId(null)
+  }
+
+  const handleSubmitReview = async (r) => {
+    setSubmittingReview(true)
+    try {
+      await createReview({
+        service: { id: r.serviceId, providerId: r.providerId },
+        requestId: r.id,
+        consumerId: auth.currentUser.uid,
+        consumerName: userDoc?.name ?? '',
+        rating: reviewRating,
+        comment: reviewComment,
+      })
+      setReviewedIds((prev) => new Set(prev).add(r.id))
+      setReviewingId(null)
+      setReviewComment('')
+      setReviewRating(5)
+    } finally {
+      setSubmittingReview(false)
+    }
   }
 
   const handleSignOut = async () => {
@@ -157,7 +188,71 @@ export default function MyRequests() {
                     Provider accepted 🎉<br />They'll be in touch to arrange payment.
                   </div>
                 )}
+
+                {r.status === REQUEST_STATUS.COMPLETED && !reviewedIds.has(r.id) && reviewingId !== r.id && (
+                  <button
+                    onClick={() => setReviewingId(r.id)}
+                    className="text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 px-3 py-2 rounded-lg transition-colors flex-shrink-0"
+                  >
+                    ⭐ Leave a review
+                  </button>
+                )}
+
+                {r.status === REQUEST_STATUS.COMPLETED && reviewedIds.has(r.id) && (
+                  <span className="text-xs text-primary-700 bg-primary-50 border border-primary-100 rounded-lg px-3 py-2 flex-shrink-0">
+                    ✅ Reviewed
+                  </span>
+                )}
               </div>
+
+              {r.status === REQUEST_STATUS.COMPLETED && reviewingId === r.id && (
+                <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Your rating</label>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setReviewRating(n)}
+                          className={`text-2xl leading-none transition-colors ${n <= reviewRating ? 'text-amber-400' : 'text-gray-200'}`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                      Comment <span className="text-gray-400 font-normal">(optional)</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      placeholder="How did it go?"
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition resize-none"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setReviewingId(null); setReviewComment(''); setReviewRating(5) }}
+                      className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSubmitReview(r)}
+                      disabled={submittingReview}
+                      className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
+                    >
+                      {submittingReview ? 'Submitting…' : 'Submit review'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

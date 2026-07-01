@@ -5,6 +5,8 @@ import { signOut } from 'firebase/auth'
 import { db, auth } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { asset } from '../../lib/asset'
+import StarRating from '../../components/StarRating'
+import { averageRating } from '../../lib/reviews'
 
 const ALL = 'All'
 
@@ -168,6 +170,11 @@ export default function ConsumerDashboard() {
                   {service.category}
                 </span>
                 <h2 className="font-semibold text-gray-800 mt-1 mb-1 leading-snug">{service.title}</h2>
+                {averageRating(service) && (
+                  <div className="mb-1">
+                    <StarRating rating={averageRating(service)} count={service.ratingCount} size="text-xs" />
+                  </div>
+                )}
                 <p className="text-sm text-gray-500 line-clamp-2 mb-3">{service.description}</p>
                 <div className="flex items-center justify-between">
                   <p className="text-primary-600 font-bold">
