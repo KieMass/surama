@@ -55,7 +55,11 @@ export default function ServiceDetail() {
           }
         }
 
-        setReviews(await getReviewsForService(id))
+        try {
+          setReviews(await getReviewsForService(id))
+        } catch {
+          // Reviews unavailable — page still renders without them
+        }
       } catch {
         setNotFound(true)
       } finally {
