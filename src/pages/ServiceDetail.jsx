@@ -34,9 +34,14 @@ export default function ServiceDetail() {
         const svcData = { id: svcSnap.id, ...svcSnap.data() }
         setService(svcData)
 
+        // Fetch provider separately — don't fail the whole page if rules block it
         if (svcData.providerId) {
-          const provSnap = await getDoc(doc(db, 'users', svcData.providerId))
-          if (provSnap.exists()) setProvider(provSnap.data())
+          try {
+            const provSnap = await getDoc(doc(db, 'users', svcData.providerId))
+            if (provSnap.exists()) setProvider(provSnap.data())
+          } catch {
+            // Provider profile unavailable — page still renders without it
+          }
         }
       } catch {
         setNotFound(true)

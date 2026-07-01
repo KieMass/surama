@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '../../firebase'
@@ -140,8 +140,9 @@ export default function ConsumerDashboard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((service) => (
-            <div
+            <Link
               key={service.id}
+              to={`/services/${service.id}`}
               className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:border-primary-200 hover:shadow-md transition-all"
             >
               {service.imageUrl ? (
@@ -160,11 +161,14 @@ export default function ConsumerDashboard() {
                 </span>
                 <h2 className="font-semibold text-gray-800 mt-1 mb-1 leading-snug">{service.title}</h2>
                 <p className="text-sm text-gray-500 line-clamp-2 mb-3">{service.description}</p>
-                <p className="text-primary-600 font-bold">
-                  {service.currency} {service.price?.toLocaleString()}
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-primary-600 font-bold">
+                    {service.currency} {service.price?.toLocaleString()}
+                  </p>
+                  <span className="text-xs text-primary-600 font-semibold">View →</span>
+                </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
