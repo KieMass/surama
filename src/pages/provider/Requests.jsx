@@ -31,9 +31,11 @@ function JobDetailPanel({ r, onStatusChange, busyId, onSaved, currentUser, userD
   const [saving, setSaving]           = useState(false)
   const [saved, setSaved]             = useState(false)
   const [startingChat, setStartingChat] = useState(false)
+  const [chatError, setChatError]     = useState('')
 
   const handleOpenChat = async () => {
     setStartingChat(true)
+    setChatError('')
     try {
       const convId = await getOrCreateConversation({
         consumerId: r.consumerId,
@@ -44,7 +46,8 @@ function JobDetailPanel({ r, onStatusChange, busyId, onSaved, currentUser, userD
         serviceTitle: r.serviceTitle,
       })
       navigate(`/chat/${convId}`)
-    } finally {
+    } catch {
+      setChatError('Could not open chat. Please try again.')
       setStartingChat(false)
     }
   }
@@ -188,13 +191,16 @@ function JobDetailPanel({ r, onStatusChange, busyId, onSaved, currentUser, userD
               </div>
             )}
 
-            <button
-              onClick={handleOpenChat}
-              disabled={startingChat}
-              className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-600 hover:border-primary-400 hover:text-primary-600 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
-            >
-              💬 {startingChat ? 'Opening…' : `Message ${r.consumerName || 'Customer'}`}
-            </button>
+            <div className="space-y-1">
+              <button
+                onClick={handleOpenChat}
+                disabled={startingChat}
+                className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-600 hover:border-primary-400 hover:text-primary-600 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                💬 {startingChat ? 'Opening…' : `Message ${r.consumerName || 'Customer'}`}
+              </button>
+              {chatError && <p className="text-xs text-red-500 text-center">{chatError}</p>}
+            </div>
           </div>
         </div>
       </div>

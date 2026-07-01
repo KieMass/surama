@@ -38,6 +38,7 @@ export default function ServiceDetail() {
   const [submitError, setSubmitError] = useState('')
   const [requestSent, setRequestSent] = useState(false)
   const [startingChat, setStartingChat] = useState(false)
+  const [chatError, setChatError] = useState('')
 
   useEffect(() => {
     const fetch = async () => {
@@ -99,6 +100,7 @@ export default function ServiceDetail() {
   const handleMessageProvider = async () => {
     if (!user || !service) return
     setStartingChat(true)
+    setChatError('')
     try {
       const convId = await getOrCreateConversation({
         consumerId: user.uid,
@@ -109,7 +111,8 @@ export default function ServiceDetail() {
         serviceTitle: service.title,
       })
       navigate(`/chat/${convId}`)
-    } finally {
+    } catch {
+      setChatError('Could not open chat. Please try again.')
       setStartingChat(false)
     }
   }
@@ -393,13 +396,18 @@ export default function ServiceDetail() {
 
                 {/* Message provider — only for authenticated consumers */}
                 {user && userDoc?.role === 'consumer' && service?.providerId !== user.uid && (
-                  <button
-                    onClick={handleMessageProvider}
-                    disabled={startingChat}
-                    className="w-full border-2 border-gray-200 text-gray-600 hover:border-primary-400 hover:text-primary-600 font-semibold py-3 rounded-xl transition-colors text-sm disabled:opacity-50"
-                  >
-                    {startingChat ? 'Opening chat…' : '💬 Message Provider'}
-                  </button>
+                  <div className="space-y-1">
+                    <button
+                      onClick={handleMessageProvider}
+                      disabled={startingChat}
+                      className="w-full border-2 border-gray-200 text-gray-600 hover:border-primary-400 hover:text-primary-600 font-semibold py-3 rounded-xl transition-colors text-sm disabled:opacity-50"
+                    >
+                      {startingChat ? 'Opening chat…' : '💬 Message Provider'}
+                    </button>
+                    {chatError && (
+                      <p className="text-xs text-red-500 text-center">{chatError}</p>
+                    )}
+                  </div>
                 )}
 
                 <Link
