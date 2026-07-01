@@ -6,6 +6,7 @@ import { asset } from '../lib/asset'
 import { useAuth } from '../context/AuthContext'
 import { createRequest } from '../lib/requests'
 import { getReviewsForService, averageRating } from '../lib/reviews'
+import { getOrCreateConversation } from '../lib/conversations'
 import StarRating from '../components/StarRating'
 
 function timeAgo(timestamp) {
@@ -36,6 +37,7 @@ export default function ServiceDetail() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [requestSent, setRequestSent] = useState(false)
+  const [startingChat, setStartingChat] = useState(false)
 
   useEffect(() => {
     const fetch = async () => {
@@ -91,6 +93,24 @@ export default function ServiceDetail() {
       setSubmitError(msg)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleMessageProvider = async () => {
+    if (!user || !service) return
+    setStartingChat(true)
+    try {
+      const convId = await getOrCreateConversation({
+        consumerId: user.uid,
+        consumerName: userDoc?.name ?? '',
+        providerId: service.providerId,
+        providerName: provider?.name ?? 'Provider',
+        serviceId: service.id,
+        serviceTitle: service.title,
+      })
+      navigate(`/chat/${convId}`)
+    } finally {
+      setStartingChat(false)
     }
   }
 
@@ -371,16 +391,23 @@ export default function ServiceDetail() {
                   </form>
                 )}
 
+                {/* Message provider — only for authenticated consumers */}
+                {user && userDoc?.role === 'consumer' && service?.providerId !== user.uid && (
+                  <button
+                    onClick={handleMessageProvider}
+                    disabled={startingChat}
+                    className="w-full border-2 border-gray-200 text-gray-600 hover:border-primary-400 hover:text-primary-600 font-semibold py-3 rounded-xl transition-colors text-sm disabled:opacity-50"
+                  >
+                    {startingChat ? 'Opening chat…' : '💬 Message Provider'}
+                  </button>
+                )}
+
                 <Link
                   to="/"
                   className="block w-full text-center border-2 border-gray-200 text-gray-600 hover:border-primary-400 hover:text-primary-600 font-semibold py-3 rounded-xl transition-colors text-sm"
                 >
                   Browse more services
                 </Link>
-
-                <p className="text-center text-xs text-gray-400 pt-1">
-                  Free to contact — no account required
-                </p>
               </div>
             </div>
           </div>

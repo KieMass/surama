@@ -265,6 +265,14 @@ export default function ProviderDashboard() {
                     <p className="text-xs text-primary-100">Add a service</p>
                   </div>
                 </Link>
+                <Link to="/inbox"
+                  className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-gray-50 transition-colors group border border-gray-100">
+                  <span className="text-xl">💬</span>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800 group-hover:text-primary-700">Messages</p>
+                    <p className="text-xs text-gray-400">Chat with customers</p>
+                  </div>
+                </Link>
               </div>
             </div>
 

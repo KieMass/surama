@@ -10,6 +10,8 @@ import MyListings from './pages/provider/MyListings'
 import ProviderRequests from './pages/provider/Requests'
 import ConsumerDashboard from './pages/consumer/ConsumerDashboard'
 import MyRequests from './pages/consumer/MyRequests'
+import Inbox from './pages/Inbox'
+import Chat from './pages/Chat'
 
 export default function App() {
   return (
@@ -67,6 +69,15 @@ export default function App() {
               <MyRequests />
             </ProtectedRoute>
           }
+        />
+
+        <Route
+          path="/inbox"
+          element={<ProtectedRoute><Inbox /></ProtectedRoute>}
+        />
+        <Route
+          path="/chat/:conversationId"
+          element={<ProtectedRoute><Chat /></ProtectedRoute>}
         />
 
         <Route path="*" element={<Navigate to="/login" replace />} />

@@ -13,6 +13,7 @@ import {
   STATUS_LABEL,
   STATUS_BADGE,
 } from '../../lib/requests'
+import { getOrCreateConversation } from '../../lib/conversations'
 
 const FILTERS = ['All', 'Pending', 'Accepted', 'Completed', 'Declined', 'Cancelled']
 
@@ -23,11 +24,30 @@ function formatDate(timestamp) {
   })
 }
 
-function JobDetailPanel({ r, onStatusChange, busyId, onSaved }) {
+function JobDetailPanel({ r, onStatusChange, busyId, onSaved, currentUser, userDoc }) {
+  const navigate = useNavigate()
   const [notes, setNotes]             = useState(r.providerNotes ?? '')
   const [scheduledDate, setScheduled] = useState(r.scheduledDate ?? r.preferredDate ?? '')
   const [saving, setSaving]           = useState(false)
   const [saved, setSaved]             = useState(false)
+  const [startingChat, setStartingChat] = useState(false)
+
+  const handleOpenChat = async () => {
+    setStartingChat(true)
+    try {
+      const convId = await getOrCreateConversation({
+        consumerId: r.consumerId,
+        consumerName: r.consumerName ?? '',
+        providerId: currentUser.uid,
+        providerName: userDoc?.name ?? '',
+        serviceId: r.serviceId,
+        serviceTitle: r.serviceTitle,
+      })
+      navigate(`/chat/${convId}`)
+    } finally {
+      setStartingChat(false)
+    }
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -167,6 +187,14 @@ function JobDetailPanel({ r, onStatusChange, busyId, onSaved }) {
                 ✅ Job Completed
               </div>
             )}
+
+            <button
+              onClick={handleOpenChat}
+              disabled={startingChat}
+              className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-600 hover:border-primary-400 hover:text-primary-600 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+            >
+              💬 {startingChat ? 'Opening…' : `Message ${r.consumerName || 'Customer'}`}
+            </button>
           </div>
         </div>
       </div>
@@ -225,9 +253,14 @@ export default function Requests() {
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <Link to="/"><img src={asset('logo-dark.png')} alt="Surama.net" className="h-10 w-auto" /></Link>
-        <button onClick={handleSignOut} className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
-          Sign out
-        </button>
+        <div className="flex items-center gap-4">
+          <Link to="/inbox" className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
+            💬 Inbox
+          </Link>
+          <button onClick={handleSignOut} className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
+            Sign out
+          </button>
+        </div>
       </nav>
 
       {/* Header */}
@@ -336,6 +369,8 @@ export default function Requests() {
                     onStatusChange={handleStatusChange}
                     busyId={busyId}
                     onSaved={handleSaved}
+                    currentUser={auth.currentUser}
+                    userDoc={userDoc}
                   />
                 )}
               </div>

@@ -58,6 +58,12 @@ export default function ConsumerDashboard() {
             My Requests
           </button>
           <button
+            onClick={() => navigate('/inbox')}
+            className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"
+          >
+            💬 Inbox
+          </button>
+          <button
             onClick={handleSignOut}
             className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"
           >
