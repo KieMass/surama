@@ -7,7 +7,9 @@ import ServiceDetail from './pages/ServiceDetail'
 import ProviderDashboard from './pages/provider/ProviderDashboard'
 import CreateListing from './pages/provider/CreateListing'
 import MyListings from './pages/provider/MyListings'
+import ProviderRequests from './pages/provider/Requests'
 import ConsumerDashboard from './pages/consumer/ConsumerDashboard'
+import MyRequests from './pages/consumer/MyRequests'
 
 export default function App() {
   return (
@@ -43,10 +45,26 @@ export default function App() {
           }
         />
         <Route
+          path="/provider/requests"
+          element={
+            <ProtectedRoute allowedRole="provider">
+              <ProviderRequests />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/consumer/dashboard"
           element={
             <ProtectedRoute allowedRole="consumer">
               <ConsumerDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/consumer/requests"
+          element={
+            <ProtectedRoute allowedRole="consumer">
+              <MyRequests />
             </ProtectedRoute>
           }
         />

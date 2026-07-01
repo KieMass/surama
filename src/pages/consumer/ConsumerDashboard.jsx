@@ -48,12 +48,20 @@ export default function ConsumerDashboard() {
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <img src={asset('logo-dark.png')} alt="Surama.net" className="h-10 w-auto" />
-        <button
-          onClick={handleSignOut}
-          className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-5">
+          <button
+            onClick={() => navigate('/consumer/requests')}
+            className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"
+          >
+            My Requests
+          </button>
+          <button
+            onClick={handleSignOut}
+            className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </nav>
 
       {/* Hero header */}

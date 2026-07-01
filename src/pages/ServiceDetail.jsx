@@ -3,6 +3,8 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { asset } from '../lib/asset'
+import { useAuth } from '../context/AuthContext'
+import { createRequest } from '../lib/requests'
 
 function timeAgo(timestamp) {
   if (!timestamp) return ''
@@ -18,12 +20,19 @@ function timeAgo(timestamp) {
 export default function ServiceDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user, userDoc } = useAuth()
 
   const [service, setService]   = useState(null)
   const [provider, setProvider] = useState(null)
   const [loading, setLoading]   = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [contacted, setContacted] = useState(false)
+
+  const [showForm, setShowForm] = useState(false)
+  const [message, setMessage]   = useState('')
+  const [preferredDate, setPreferredDate] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [requestSent, setRequestSent] = useState(false)
 
   useEffect(() => {
     const fetch = async () => {
@@ -34,13 +43,12 @@ export default function ServiceDetail() {
         const svcData = { id: svcSnap.id, ...svcSnap.data() }
         setService(svcData)
 
-        // Fetch provider separately — don't fail the whole page if rules block it
         if (svcData.providerId) {
           try {
             const provSnap = await getDoc(doc(db, 'users', svcData.providerId))
             if (provSnap.exists()) setProvider(provSnap.data())
           } catch {
-            // Provider profile unavailable — page still renders without it
+            // Provider profile unreadable — page still renders without it
           }
         }
       } catch {
@@ -51,6 +59,28 @@ export default function ServiceDetail() {
     }
     fetch()
   }, [id])
+
+  const handleRequestSubmit = async (e) => {
+    e.preventDefault()
+    setSubmitError('')
+    setSubmitting(true)
+    try {
+      await createRequest({
+        service,
+        consumerId: user.uid,
+        consumerName: userDoc?.name ?? '',
+        consumerEmail: userDoc?.email ?? user.email,
+        message,
+        preferredDate,
+      })
+      setRequestSent(true)
+      setShowForm(false)
+    } catch (err) {
+      setSubmitError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -210,19 +240,94 @@ export default function ServiceDetail() {
                 </div>
 
                 {/* CTA */}
-                {!contacted ? (
+                {requestSent ? (
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
+                    <p className="text-2xl mb-1">✅</p>
+                    <p className="text-sm font-bold text-gray-800">Request sent!</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {provider?.name ?? 'The provider'} will review your request and respond soon.
+                    </p>
+                    <Link
+                      to="/consumer/requests"
+                      className="inline-block mt-3 text-xs font-semibold text-primary-600 hover:underline"
+                    >
+                      View my requests →
+                    </Link>
+                  </div>
+                ) : !user ? (
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => navigate('/login')}
+                      className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3.5 rounded-xl transition-colors shadow-sm text-sm"
+                    >
+                      Sign in to request this service
+                    </button>
+                    <p className="text-center text-xs text-gray-400">
+                      New here?{' '}
+                      <Link to="/register" className="text-primary-600 font-semibold hover:underline">
+                        Create an account
+                      </Link>
+                    </p>
+                  </div>
+                ) : userDoc?.role === 'provider' ? (
+                  <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-center">
+                    <p className="text-xs text-gray-500">Provider accounts can't request services.</p>
+                  </div>
+                ) : !showForm ? (
                   <button
-                    onClick={() => setContacted(true)}
+                    onClick={() => setShowForm(true)}
                     className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3.5 rounded-xl transition-colors shadow-sm text-sm"
                   >
-                    Contact Provider
+                    Request This Service
                   </button>
                 ) : (
-                  <div className="bg-primary-50 border border-primary-100 rounded-xl p-4 text-center">
-                    <p className="text-xs font-semibold text-primary-700 uppercase tracking-wide mb-1">Provider contact</p>
-                    <p className="text-sm font-bold text-gray-800">{provider?.email ?? 'Contact via Surama'}</p>
-                    <p className="text-xs text-gray-500 mt-2">Mention you found them on Surama.net</p>
-                  </div>
+                  <form onSubmit={handleRequestSubmit} className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Preferred date <span className="text-gray-400 font-normal">(optional)</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={preferredDate}
+                        onChange={(e) => setPreferredDate(e.target.value)}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Message to provider
+                      </label>
+                      <textarea
+                        rows={3}
+                        required
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder="Tell them what you need, your location, and any details…"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition resize-none"
+                      />
+                    </div>
+                    {submitError && (
+                      <div className="bg-red-50 border border-red-100 text-red-600 text-xs px-3 py-2.5 rounded-xl">
+                        {submitError}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowForm(false)}
+                        className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
+                      >
+                        {submitting ? 'Sending…' : 'Send Request'}
+                      </button>
+                    </div>
+                  </form>
                 )}
 
                 <Link
