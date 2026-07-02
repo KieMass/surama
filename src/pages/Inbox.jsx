@@ -94,27 +94,42 @@ export default function Inbox() {
             const otherName = isConsumer ? conv.providerName : conv.consumerName
             const initials = otherName?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
 
+            const lastMsg  = conv.lastMessageAt?.toMillis?.() ?? 0
+            const lastRead = conv.readBy?.[user.uid]?.toMillis?.() ?? 0
+            const isUnread = lastMsg > lastRead && conv.lastMessageBy !== user.uid
+
             return (
               <Link
                 key={conv.id}
                 to={`/chat/${conv.id}`}
-                className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 px-5 py-4 hover:border-primary-200 hover:shadow-md transition-all"
+                className={`flex items-center gap-4 bg-white rounded-2xl border px-5 py-4 hover:border-primary-200 hover:shadow-md transition-all ${
+                  isUnread ? 'border-primary-200 shadow-sm' : 'border-gray-100'
+                }`}
               >
-                <div
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #ff5a5f, #c93338)' }}
-                >
-                  {initials}
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-sm"
+                    style={{ background: 'linear-gradient(135deg, #ff5a5f, #c93338)' }}
+                  >
+                    {initials}
+                  </div>
+                  {isUnread && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <p className="font-semibold text-gray-900 truncate">{otherName || 'User'}</p>
-                    <p className="text-xs text-gray-400 flex-shrink-0">{timeAgo(conv.lastMessageAt)}</p>
+                    <p className={`truncate ${isUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-900'}`}>
+                      {otherName || 'User'}
+                    </p>
+                    <p className={`text-xs flex-shrink-0 ${isUnread ? 'text-primary-600 font-semibold' : 'text-gray-400'}`}>
+                      {timeAgo(conv.lastMessageAt)}
+                    </p>
                   </div>
                   {conv.serviceTitle && (
                     <p className="text-xs text-primary-600 font-medium truncate mb-0.5">{conv.serviceTitle}</p>
                   )}
-                  <p className="text-sm text-gray-500 truncate">
+                  <p className={`text-sm truncate ${isUnread ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>
                     {conv.lastMessage || 'Start the conversation…'}
                   </p>
                 </div>

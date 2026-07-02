@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { NotificationProvider } from './context/NotificationContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import HomePage from './pages/HomePage'
 import Login from './pages/Login'
@@ -16,6 +17,7 @@ import Chat from './pages/Chat'
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <NotificationProvider>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/services/:id" element={<ServiceDetail />} />
@@ -82,6 +84,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+      </NotificationProvider>
     </BrowserRouter>
   )
 }

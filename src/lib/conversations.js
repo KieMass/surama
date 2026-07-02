@@ -41,10 +41,19 @@ export async function sendMessage(conversationId, { senderId, senderName, text }
     text,
     createdAt: serverTimestamp(),
   })
+  // Mark the sender as having read their own message so their inbox count stays 0.
   await updateDoc(doc(db, 'conversations', conversationId), {
     lastMessage: text,
     lastMessageAt: serverTimestamp(),
     lastMessageBy: senderId,
+    [`readBy.${senderId}`]: serverTimestamp(),
+  })
+}
+
+// Call when a user opens a chat — clears the unread signal for that conversation.
+export async function markConversationRead(conversationId, userId) {
+  return updateDoc(doc(db, 'conversations', conversationId), {
+    [`readBy.${userId}`]: serverTimestamp(),
   })
 }
 

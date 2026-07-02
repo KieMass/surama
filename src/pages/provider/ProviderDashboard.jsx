@@ -6,6 +6,8 @@ import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { asset } from '../../lib/asset'
 import { getRequestsForProvider, REQUEST_STATUS, STATUS_LABEL, STATUS_BADGE } from '../../lib/requests'
+import { useNotifications } from '../../context/NotificationContext'
+import NavBadge from '../../components/NavBadge'
 
 function formatDate(ts) {
   if (!ts) return '—'
@@ -40,6 +42,7 @@ function StatCard({ label, value, sub, accent, icon }) {
 export default function ProviderDashboard() {
   const { userDoc } = useAuth()
   const navigate = useNavigate()
+  const { inboxCount, requestCount } = useNotifications()
 
   const [requests, setRequests]   = useState([])
   const [listings, setListings]   = useState([])
@@ -99,9 +102,17 @@ export default function ProviderDashboard() {
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <Link to="/"><img src={asset('logo-dark.png')} alt="Surama.net" className="h-10 w-auto" /></Link>
-        <button onClick={handleSignOut} className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
-          Sign out
-        </button>
+        <div className="flex items-center gap-5">
+          <Link to="/provider/requests" className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
+            <NavBadge count={requestCount}>Requests</NavBadge>
+          </Link>
+          <Link to="/inbox" className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
+            <NavBadge count={inboxCount}>💬 Inbox</NavBadge>
+          </Link>
+          <button onClick={handleSignOut} className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
+            Sign out
+          </button>
+        </div>
       </nav>
 
       {/* Hero */}
@@ -269,12 +280,17 @@ export default function ProviderDashboard() {
                   </div>
                 </Link>
                 <Link to="/inbox"
-                  className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-gray-50 transition-colors group border border-gray-100">
+                  className="relative flex items-center gap-3 p-3.5 rounded-xl hover:bg-gray-50 transition-colors group border border-gray-100">
                   <span className="text-xl">💬</span>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-sm font-semibold text-gray-800 group-hover:text-primary-700">Messages</p>
                     <p className="text-xs text-gray-400">Chat with customers</p>
                   </div>
+                  {inboxCount > 0 && (
+                    <span className="bg-red-500 text-white text-xs font-bold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1">
+                      {inboxCount > 9 ? '9+' : inboxCount}
+                    </span>
+                  )}
                 </Link>
               </div>
             </div>

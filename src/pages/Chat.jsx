@@ -4,7 +4,7 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { asset } from '../lib/asset'
-import { subscribeToMessages, sendMessage } from '../lib/conversations'
+import { subscribeToMessages, sendMessage, markConversationRead } from '../lib/conversations'
 
 function formatTime(ts) {
   if (!ts?.toDate) return ''
@@ -36,15 +36,22 @@ export default function Chat() {
 
   useEffect(() => {
     getDoc(doc(db, 'conversations', conversationId)).then((snap) => {
-      if (snap.exists()) setConversation({ id: snap.id, ...snap.data() })
+      if (snap.exists()) {
+        setConversation({ id: snap.id, ...snap.data() })
+        if (user?.uid) markConversationRead(conversationId, user.uid)
+      }
       setLoading(false)
     })
-  }, [conversationId])
+  }, [conversationId, user?.uid])
 
   useEffect(() => {
-    const unsub = subscribeToMessages(conversationId, setMessages)
+    const unsub = subscribeToMessages(conversationId, (msgs) => {
+      setMessages(msgs)
+      // Mark read whenever new messages arrive while this chat is open
+      if (user?.uid) markConversationRead(conversationId, user.uid)
+    })
     return unsub
-  }, [conversationId])
+  }, [conversationId, user?.uid])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

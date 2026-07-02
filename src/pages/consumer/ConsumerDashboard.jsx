@@ -4,6 +4,8 @@ import { collection, query, where, getDocs } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
+import { useNotifications } from '../../context/NotificationContext'
+import NavBadge from '../../components/NavBadge'
 import { asset } from '../../lib/asset'
 import StarRating from '../../components/StarRating'
 import { averageRating } from '../../lib/reviews'
@@ -13,6 +15,7 @@ const ALL = 'All'
 export default function ConsumerDashboard() {
   const { userDoc } = useAuth()
   const navigate = useNavigate()
+  const { inboxCount, requestCount } = useNotifications()
   const [services, setServices] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState(ALL)
@@ -55,13 +58,13 @@ export default function ConsumerDashboard() {
             onClick={() => navigate('/consumer/requests')}
             className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"
           >
-            My Requests
+            <NavBadge count={requestCount}>My Requests</NavBadge>
           </button>
           <button
             onClick={() => navigate('/inbox')}
             className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"
           >
-            💬 Inbox
+            <NavBadge count={inboxCount}>💬 Inbox</NavBadge>
           </button>
           <button
             onClick={handleSignOut}

@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
+import { useNotifications } from '../../context/NotificationContext'
+import NavBadge from '../../components/NavBadge'
 import { asset } from '../../lib/asset'
 import {
   getRequestsForConsumer,
@@ -42,6 +44,7 @@ function timeUntilAutoConfirm(completionRequestedAt) {
 export default function MyRequests() {
   const { userDoc } = useAuth()
   const navigate = useNavigate()
+  const { inboxCount } = useNotifications()
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [cancellingId, setCancellingId] = useState(null)
@@ -263,7 +266,7 @@ export default function MyRequests() {
         <Link to="/"><img src={asset('logo-dark.png')} alt="Surama.net" className="h-10 w-auto" /></Link>
         <div className="flex items-center gap-5">
           <Link to="/inbox" className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
-            💬 Inbox
+            <NavBadge count={inboxCount}>💬 Inbox</NavBadge>
           </Link>
           <button onClick={handleSignOut} className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
             Sign out
