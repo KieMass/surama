@@ -7,12 +7,17 @@ import { asset } from '../../lib/asset'
 import {
   getRequestsForConsumer,
   updateRequestStatus,
+  confirmCompletion,
+  disputeCompletion,
   sortByNewest,
   REQUEST_STATUS,
   STATUS_LABEL,
   STATUS_BADGE,
 } from '../../lib/requests'
 import { createReview, updateReview, getReviewedRequestIds } from '../../lib/reviews'
+import { getOrCreateConversation, sendMessage } from '../../lib/conversations'
+
+const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000
 
 function formatDate(timestamp) {
   if (!timestamp?.toDate) return ''
@@ -21,12 +26,24 @@ function formatDate(timestamp) {
   })
 }
 
+function timeUntilAutoConfirm(completionRequestedAt) {
+  if (!completionRequestedAt?.toMillis?.()) return '2 days'
+  const remaining = TWO_DAYS_MS - (Date.now() - completionRequestedAt.toMillis())
+  if (remaining <= 0) return 'soon'
+  const days = Math.floor(remaining / (24 * 60 * 60 * 1000))
+  const hours = Math.floor((remaining % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000))
+  if (days > 0) return `${days} day${days !== 1 ? 's' : ''}`
+  return `${hours} hour${hours !== 1 ? 's' : ''}`
+}
+
 export default function MyRequests() {
   const { userDoc } = useAuth()
   const navigate = useNavigate()
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [cancellingId, setCancellingId] = useState(null)
+  const [confirmingId, setConfirmingId] = useState(null)
+  const [disputingId, setDisputingId] = useState(null)
   // Map<requestId, { id: reviewId, rating, comment }>
   const [reviewMap, setReviewMap] = useState(new Map())
   const [reviewingId, setReviewingId] = useState(null)
@@ -38,7 +55,22 @@ export default function MyRequests() {
   const loadRequests = async () => {
     setLoading(true)
     const data = await getRequestsForConsumer(auth.currentUser.uid)
-    const sorted = sortByNewest(data)
+    let sorted = sortByNewest(data)
+
+    // Auto-complete any pending_completion older than 2 days
+    const expired = sorted.filter(
+      (r) =>
+        r.status === REQUEST_STATUS.PENDING_COMPLETION &&
+        r.completionRequestedAt?.toMillis?.() &&
+        Date.now() - r.completionRequestedAt.toMillis() > TWO_DAYS_MS
+    )
+    if (expired.length > 0) {
+      await Promise.all(expired.map((r) => confirmCompletion(r.id)))
+      sorted = sorted.map((r) =>
+        expired.some((e) => e.id === r.id) ? { ...r, status: REQUEST_STATUS.COMPLETED } : r
+      )
+    }
+
     setRequests(sorted)
     const completedIds = sorted
       .filter((r) => r.status === REQUEST_STATUS.COMPLETED)
@@ -56,6 +88,53 @@ export default function MyRequests() {
     await updateRequestStatus(id, REQUEST_STATUS.CANCELLED)
     await loadRequests()
     setCancellingId(null)
+  }
+
+  const handleConfirm = async (r) => {
+    setConfirmingId(r.id)
+    try {
+      await confirmCompletion(r.id)
+      const updated = requests.map((req) =>
+        req.id === r.id ? { ...req, status: REQUEST_STATUS.COMPLETED } : req
+      )
+      setRequests(updated)
+      const completedIds = updated
+        .filter((req) => req.status === REQUEST_STATUS.COMPLETED)
+        .map((req) => req.id)
+      setReviewMap(await getReviewedRequestIds(completedIds))
+    } finally {
+      setConfirmingId(null)
+    }
+  }
+
+  const handleDispute = async (r) => {
+    setDisputingId(r.id)
+    try {
+      await disputeCompletion(r.id)
+      // Send automatic message to the provider so they're notified
+      try {
+        const convId = await getOrCreateConversation({
+          consumerId: auth.currentUser.uid,
+          consumerName: userDoc?.name ?? '',
+          providerId: r.providerId,
+          providerName: '',
+          serviceId: r.serviceId,
+          serviceTitle: r.serviceTitle,
+        })
+        await sendMessage(convId, {
+          senderId: auth.currentUser.uid,
+          senderName: userDoc?.name ?? 'Consumer',
+          text: `I've raised a dispute for "${r.serviceTitle}". Please message me so we can resolve this.`,
+        })
+      } catch {
+        // Messaging failed but dispute status is already saved — that's OK
+      }
+      setRequests((prev) =>
+        prev.map((req) => req.id === r.id ? { ...req, status: REQUEST_STATUS.DISPUTED } : req)
+      )
+    } finally {
+      setDisputingId(null)
+    }
   }
 
   const openReviewForm = (r) => {
@@ -179,6 +258,7 @@ export default function MyRequests() {
             const isSuccessFlash = reviewSuccessId === r.id
             return (
               <div key={r.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                {/* Top row — title / status / actions */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1.5">
@@ -248,6 +328,54 @@ export default function MyRequests() {
                     )}
                   </div>
                 </div>
+
+                {/* Pending completion — confirm or dispute */}
+                {r.status === REQUEST_STATUS.PENDING_COMPLETION && (
+                  <div className="mt-4 pt-4 border-t border-purple-100">
+                    <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 space-y-3">
+                      <div>
+                        <p className="text-sm font-bold text-purple-800">The provider has marked this job as complete</p>
+                        <p className="text-xs text-purple-500 mt-0.5">
+                          Auto-confirms in {timeUntilAutoConfirm(r.completionRequestedAt)} if you take no action.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleDispute(r)}
+                          disabled={disputingId === r.id || confirmingId === r.id}
+                          className="flex-1 border border-orange-200 text-orange-600 hover:bg-orange-50 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                        >
+                          {disputingId === r.id ? 'Raising dispute…' : '⚠️ Dispute'}
+                        </button>
+                        <button
+                          onClick={() => handleConfirm(r)}
+                          disabled={confirmingId === r.id || disputingId === r.id}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 shadow-sm"
+                        >
+                          {confirmingId === r.id ? 'Confirming…' : '✅ Confirm Complete'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Disputed */}
+                {r.status === REQUEST_STATUS.DISPUTED && (
+                  <div className="mt-4 pt-4 border-t border-orange-100">
+                    <div className="bg-orange-50 border border-orange-100 rounded-xl p-4">
+                      <p className="text-sm font-bold text-orange-800">⚠️ Dispute raised</p>
+                      <p className="text-xs text-orange-600 mt-1">
+                        A message has been sent to the provider. Continue the conversation in your inbox to resolve this.
+                      </p>
+                      <Link
+                        to="/inbox"
+                        className="inline-block mt-2 text-xs font-semibold text-primary-600 hover:underline"
+                      >
+                        💬 Go to inbox →
+                      </Link>
+                    </div>
+                  </div>
+                )}
 
                 {/* Inline review form */}
                 {r.status === REQUEST_STATUS.COMPLETED && isReviewing && (

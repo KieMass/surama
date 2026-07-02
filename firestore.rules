@@ -22,7 +22,8 @@ service cloud.firestore {
     // ── Requests ───────────────────────────────────────────────────────────
     // Consumers can create a request for themselves and read their own.
     // Providers can read and update (but not create) requests where they are
-    // the named provider. No one else may read or write request documents.
+    // the named provider. Consumers may also update for a limited set of
+    // status transitions (cancel, confirm completion, dispute completion).
     match /requests/{requestId} {
       allow create: if request.auth != null
                     && request.resource.data.consumerId == request.auth.uid;
@@ -31,12 +32,30 @@ service cloud.firestore {
                   && (resource.data.consumerId == request.auth.uid
                       || resource.data.providerId == request.auth.uid);
 
+      // Providers can update any field except the four immutable identity fields.
       allow update: if request.auth != null
                     && resource.data.providerId == request.auth.uid
-                    && !("consumerId"  in request.resource.data.diff(resource.data).affectedKeys())
-                    && !("providerId"  in request.resource.data.diff(resource.data).affectedKeys())
-                    && !("serviceId"   in request.resource.data.diff(resource.data).affectedKeys())
+                    && !("consumerId"    in request.resource.data.diff(resource.data).affectedKeys())
+                    && !("providerId"    in request.resource.data.diff(resource.data).affectedKeys())
+                    && !("serviceId"     in request.resource.data.diff(resource.data).affectedKeys())
                     && !("consumerEmail" in request.resource.data.diff(resource.data).affectedKeys());
+
+      // Consumers may only change status (and add timestamp fields). Identity
+      // fields must stay the same. Allowed transitions:
+      //   pending | accepted        → cancelled
+      //   pending_completion        → completed (confirm) or disputed (dispute)
+      allow update: if request.auth != null
+                    && resource.data.consumerId == request.auth.uid
+                    && request.resource.data.consumerId    == resource.data.consumerId
+                    && request.resource.data.providerId    == resource.data.providerId
+                    && request.resource.data.serviceId     == resource.data.serviceId
+                    && request.resource.data.consumerEmail == resource.data.consumerEmail
+                    && (
+                         (resource.data.status in ['pending', 'accepted']
+                           && request.resource.data.status == 'cancelled')
+                      || (resource.data.status == 'pending_completion'
+                           && request.resource.data.status in ['completed', 'disputed'])
+                    );
 
       allow delete: if false;
     }

@@ -16,6 +16,8 @@ export const REQUEST_STATUS = {
   DECLINED: 'declined',
   COMPLETED: 'completed',
   CANCELLED: 'cancelled',
+  PENDING_COMPLETION: 'pending_completion',
+  DISPUTED: 'disputed',
 }
 
 export const STATUS_LABEL = {
@@ -24,21 +26,20 @@ export const STATUS_LABEL = {
   declined: 'Declined',
   completed: 'Completed',
   cancelled: 'Cancelled',
+  pending_completion: 'Awaiting Confirmation',
+  disputed: 'Disputed',
 }
 
-// Tailwind classes for status badges — kept here so every page renders
-// statuses identically without copy-pasting the color map.
 export const STATUS_BADGE = {
   pending: 'bg-amber-50 text-amber-700 border border-amber-100',
   accepted: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
   declined: 'bg-red-50 text-red-700 border border-red-100',
   completed: 'bg-primary-50 text-primary-700 border border-primary-100',
   cancelled: 'bg-gray-100 text-gray-500 border border-gray-200',
+  pending_completion: 'bg-purple-50 text-purple-700 border border-purple-100',
+  disputed: 'bg-orange-50 text-orange-700 border border-orange-100',
 }
 
-/**
- * Creates a new service request (a consumer asking a provider to fulfil a listing).
- */
 export async function createRequest({
   service,
   consumerId,
@@ -65,21 +66,18 @@ export async function createRequest({
   })
 }
 
-/** Fetch every request a given consumer has made. */
 export async function getRequestsForConsumer(consumerId) {
   const q = query(collection(db, 'requests'), where('consumerId', '==', consumerId))
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-/** Fetch every request sent to a given provider (across all their listings). */
 export async function getRequestsForProvider(providerId) {
   const q = query(collection(db, 'requests'), where('providerId', '==', providerId))
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-/** Update a request's status (accept / decline / complete / cancel). */
 export async function updateRequestStatus(requestId, status) {
   return updateDoc(doc(db, 'requests', requestId), {
     status,
@@ -87,7 +85,35 @@ export async function updateRequestStatus(requestId, status) {
   })
 }
 
-/** Update provider-editable job details (notes and confirmed date). */
+// Provider signals the job is done — moves to pending_completion so the
+// consumer can confirm. Records when the request was made for the 2-day
+// auto-confirm timer.
+export async function requestCompletion(requestId) {
+  return updateDoc(doc(db, 'requests', requestId), {
+    status: REQUEST_STATUS.PENDING_COMPLETION,
+    completionRequestedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// Consumer (or auto-confirm after 2 days) confirms the job is done.
+export async function confirmCompletion(requestId) {
+  return updateDoc(doc(db, 'requests', requestId), {
+    status: REQUEST_STATUS.COMPLETED,
+    completedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// Consumer disputes the provider's completion claim.
+export async function disputeCompletion(requestId) {
+  return updateDoc(doc(db, 'requests', requestId), {
+    status: REQUEST_STATUS.DISPUTED,
+    disputedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
 export async function updateRequestDetails(requestId, { providerNotes, scheduledDate }) {
   return updateDoc(doc(db, 'requests', requestId), {
     providerNotes,
@@ -96,7 +122,6 @@ export async function updateRequestDetails(requestId, { providerNotes, scheduled
   })
 }
 
-/** Sort newest first — Firestore timestamps expose .toMillis(); fall back gracefully. */
 export function sortByNewest(requests) {
   return [...requests].sort((a, b) => {
     const aMs = a.createdAt?.toMillis?.() ?? 0

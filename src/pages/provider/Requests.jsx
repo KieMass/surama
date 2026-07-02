@@ -8,6 +8,7 @@ import {
   getRequestsForProvider,
   updateRequestStatus,
   updateRequestDetails,
+  requestCompletion,
   sortByNewest,
   REQUEST_STATUS,
   STATUS_LABEL,
@@ -15,7 +16,7 @@ import {
 } from '../../lib/requests'
 import { getOrCreateConversation } from '../../lib/conversations'
 
-const FILTERS = ['All', 'Pending', 'Accepted', 'Completed', 'Declined', 'Cancelled']
+const FILTERS = ['All', 'Pending', 'Accepted', 'Awaiting Confirmation', 'Disputed', 'Completed', 'Declined', 'Cancelled']
 
 function formatDate(timestamp) {
   if (!timestamp?.toDate) return ''
@@ -24,7 +25,7 @@ function formatDate(timestamp) {
   })
 }
 
-function JobDetailPanel({ r, onStatusChange, busyId, onSaved, currentUser, userDoc }) {
+function JobDetailPanel({ r, onStatusChange, onRequestCompletion, busyId, onSaved, currentUser, userDoc }) {
   const navigate = useNavigate()
   const [notes, setNotes]             = useState(r.providerNotes ?? '')
   const [scheduledDate, setScheduled] = useState(r.scheduledDate ?? r.preferredDate ?? '')
@@ -61,9 +62,12 @@ function JobDetailPanel({ r, onStatusChange, busyId, onSaved, currentUser, userD
     onSaved({ ...r, providerNotes: notes, scheduledDate })
   }
 
-  const isPending   = r.status === REQUEST_STATUS.PENDING
-  const isAccepted  = r.status === REQUEST_STATUS.ACCEPTED
-  const isCompleted = r.status === REQUEST_STATUS.COMPLETED
+  const isPending           = r.status === REQUEST_STATUS.PENDING
+  const isAccepted          = r.status === REQUEST_STATUS.ACCEPTED
+  const isPendingCompletion = r.status === REQUEST_STATUS.PENDING_COMPLETION
+  const isDisputed          = r.status === REQUEST_STATUS.DISPUTED
+  const isCompleted         = r.status === REQUEST_STATUS.COMPLETED
+  const isLocked            = isCompleted || isPendingCompletion || isDisputed
 
   return (
     <div className="border-t border-gray-100 bg-gray-50 px-5 py-5">
@@ -124,7 +128,7 @@ function JobDetailPanel({ r, onStatusChange, busyId, onSaved, currentUser, userD
               type="date"
               value={scheduledDate}
               onChange={(e) => setScheduled(e.target.value)}
-              disabled={isCompleted}
+              disabled={isLocked}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition disabled:bg-gray-100 disabled:text-gray-400"
             />
           </div>
@@ -137,13 +141,13 @@ function JobDetailPanel({ r, onStatusChange, busyId, onSaved, currentUser, userD
               rows={4}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              disabled={isCompleted}
+              disabled={isLocked}
               placeholder="Add details about the job, materials needed, access info, agreed scope…"
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition resize-none disabled:bg-gray-100 disabled:text-gray-400"
             />
           </div>
 
-          {!isCompleted && (
+          {!isLocked && (
             <button
               onClick={handleSave}
               disabled={saving}
@@ -176,13 +180,37 @@ function JobDetailPanel({ r, onStatusChange, busyId, onSaved, currentUser, userD
 
             {isAccepted && (
               <button
-                onClick={() => onStatusChange(r.id, REQUEST_STATUS.COMPLETED)}
+                onClick={() => onRequestCompletion(r.id)}
                 disabled={busyId === r.id}
                 className="w-full text-sm font-bold text-white py-3 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
                 style={{ background: 'linear-gradient(135deg, #22c55e, #15803d)' }}
               >
-                {busyId === r.id ? 'Marking…' : '✓ Mark Job as Completed'}
+                {busyId === r.id ? 'Submitting…' : '✓ Mark Job as Completed'}
               </button>
+            )}
+
+            {isPendingCompletion && (
+              <div className="bg-purple-50 border border-purple-100 rounded-xl p-3 text-center space-y-1">
+                <p className="text-sm font-semibold text-purple-800">⏳ Awaiting customer confirmation</p>
+                <p className="text-xs text-purple-500">Auto-confirms 2 days after submission. Customer can confirm or dispute.</p>
+              </div>
+            )}
+
+            {isDisputed && (
+              <div className="space-y-2">
+                <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 text-center">
+                  <p className="text-sm font-semibold text-orange-800">⚠️ Customer raised a dispute</p>
+                  <p className="text-xs text-orange-500 mt-0.5">Check your inbox — a message has been sent. Resolve with the customer, then re-submit when ready.</p>
+                </div>
+                <button
+                  onClick={() => onRequestCompletion(r.id)}
+                  disabled={busyId === r.id}
+                  className="w-full text-sm font-semibold text-white py-2.5 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, #22c55e, #15803d)' }}
+                >
+                  {busyId === r.id ? 'Submitting…' : 'Re-submit for Completion'}
+                </button>
+              </div>
             )}
 
             {isCompleted && (
@@ -237,6 +265,13 @@ export default function Requests() {
   const handleStatusChange = async (id, status) => {
     setBusyId(id)
     await updateRequestStatus(id, status)
+    await load()
+    setBusyId(null)
+  }
+
+  const handleRequestCompletion = async (id) => {
+    setBusyId(id)
+    await requestCompletion(id)
     await load()
     setBusyId(null)
   }
@@ -373,6 +408,7 @@ export default function Requests() {
                   <JobDetailPanel
                     r={r}
                     onStatusChange={handleStatusChange}
+                    onRequestCompletion={handleRequestCompletion}
                     busyId={busyId}
                     onSaved={handleSaved}
                     currentUser={auth.currentUser}
