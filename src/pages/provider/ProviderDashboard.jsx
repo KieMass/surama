@@ -69,6 +69,7 @@ export default function ProviderDashboard() {
   // ── Derived stats ──────────────────────────────────────────────────────────
   const pending           = requests.filter((r) => r.status === REQUEST_STATUS.PENDING)
   const accepted          = requests.filter((r) => r.status === REQUEST_STATUS.ACCEPTED)
+  const priceProposed     = requests.filter((r) => r.status === REQUEST_STATUS.PRICE_PROPOSED)
   const pendingCompletion = requests.filter((r) => r.status === REQUEST_STATUS.PENDING_COMPLETION)
   const disputed          = requests.filter((r) => r.status === REQUEST_STATUS.DISPUTED)
   const completed         = requests.filter((r) => r.status === REQUEST_STATUS.COMPLETED)
@@ -285,13 +286,14 @@ export default function ProviderDashboard() {
               </div>
               <div className="p-5 space-y-3">
                 {[
-                  { label: 'Pending',              count: pending.length,                                                         color: 'bg-amber-400' },
-                  { label: 'Accepted',             count: accepted.length,                                                        color: 'bg-emerald-400' },
-                  { label: 'Awaiting confirm',     count: pendingCompletion.length,                                               color: 'bg-purple-400' },
-                  { label: 'Disputed',             count: disputed.length,                                                        color: 'bg-orange-400' },
-                  { label: 'Completed',            count: completed.length,                                                        color: 'bg-primary-500' },
-                  { label: 'Declined',             count: requests.filter((r) => r.status === REQUEST_STATUS.DECLINED).length,   color: 'bg-red-400' },
-                  { label: 'Cancelled',            count: requests.filter((r) => r.status === REQUEST_STATUS.CANCELLED).length,  color: 'bg-gray-300' },
+                  { label: 'Pending',          count: pending.length,                                                         color: 'bg-amber-400' },
+                  { label: 'Accepted',         count: accepted.length,                                                        color: 'bg-emerald-400' },
+                  { label: 'Price pending',    count: priceProposed.length,                                                   color: 'bg-indigo-400' },
+                  { label: 'Awaiting confirm', count: pendingCompletion.length,                                               color: 'bg-purple-400' },
+                  { label: 'Disputed',         count: disputed.length,                                                        color: 'bg-orange-400' },
+                  { label: 'Completed',        count: completed.length,                                                       color: 'bg-primary-500' },
+                  { label: 'Declined',         count: requests.filter((r) => r.status === REQUEST_STATUS.DECLINED).length,   color: 'bg-red-400' },
+                  { label: 'Cancelled',        count: requests.filter((r) => r.status === REQUEST_STATUS.CANCELLED).length,  color: 'bg-gray-300' },
                 ].map(({ label, count, color }) => {
                   const pct = requests.length ? Math.round((count / requests.length) * 100) : 0
                   return (

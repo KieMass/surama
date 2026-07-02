@@ -9,6 +9,9 @@ import {
   updateRequestStatus,
   updateRequestDetails,
   requestCompletion,
+  proposePriceAdjustment,
+  acceptPriceAdjustment,
+  declinePriceAdjustment,
   sortByNewest,
   REQUEST_STATUS,
   STATUS_LABEL,
@@ -16,7 +19,7 @@ import {
 } from '../../lib/requests'
 import { getOrCreateConversation } from '../../lib/conversations'
 
-const FILTERS = ['All', 'Pending', 'Accepted', 'Awaiting Confirmation', 'Disputed', 'Completed', 'Declined', 'Cancelled']
+const FILTERS = ['All', 'Pending', 'Accepted', 'Price Pending', 'Awaiting Confirmation', 'Disputed', 'Completed', 'Declined', 'Cancelled']
 
 function formatDate(timestamp) {
   if (!timestamp?.toDate) return ''
@@ -25,7 +28,7 @@ function formatDate(timestamp) {
   })
 }
 
-function JobDetailPanel({ r, onStatusChange, onRequestCompletion, busyId, onSaved, currentUser, userDoc }) {
+function JobDetailPanel({ r, onStatusChange, onRequestCompletion, onPricePropose, onPriceAccept, onPriceDecline, busyId, onSaved, currentUser, userDoc }) {
   const navigate = useNavigate()
   const [notes, setNotes]             = useState(r.providerNotes ?? '')
   const [scheduledDate, setScheduled] = useState(r.scheduledDate ?? r.preferredDate ?? '')
@@ -33,6 +36,10 @@ function JobDetailPanel({ r, onStatusChange, onRequestCompletion, busyId, onSave
   const [saved, setSaved]             = useState(false)
   const [startingChat, setStartingChat] = useState(false)
   const [chatError, setChatError]     = useState('')
+  const [showPriceForm, setShowPriceForm] = useState(false)
+  const [newPrice, setNewPrice]           = useState('')
+  const [priceNote, setPriceNote]         = useState('')
+  const [proposingPrice, setProposingPrice] = useState(false)
 
   const handleOpenChat = async () => {
     setStartingChat(true)
@@ -64,10 +71,21 @@ function JobDetailPanel({ r, onStatusChange, onRequestCompletion, busyId, onSave
 
   const isPending           = r.status === REQUEST_STATUS.PENDING
   const isAccepted          = r.status === REQUEST_STATUS.ACCEPTED
+  const isPriceProposed     = r.status === REQUEST_STATUS.PRICE_PROPOSED
   const isPendingCompletion = r.status === REQUEST_STATUS.PENDING_COMPLETION
   const isDisputed          = r.status === REQUEST_STATUS.DISPUTED
   const isCompleted         = r.status === REQUEST_STATUS.COMPLETED
   const isLocked            = isCompleted || isPendingCompletion || isDisputed
+
+  const handleProposePrice = async () => {
+    if (!newPrice) return
+    setProposingPrice(true)
+    await onPricePropose(r.id, parseFloat(newPrice), priceNote)
+    setShowPriceForm(false)
+    setNewPrice('')
+    setPriceNote('')
+    setProposingPrice(false)
+  }
 
   return (
     <div className="border-t border-gray-100 bg-gray-50 px-5 py-5">
@@ -179,14 +197,124 @@ function JobDetailPanel({ r, onStatusChange, onRequestCompletion, busyId, onSave
             )}
 
             {isAccepted && (
-              <button
-                onClick={() => onRequestCompletion(r.id)}
-                disabled={busyId === r.id}
-                className="w-full text-sm font-bold text-white py-3 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
-                style={{ background: 'linear-gradient(135deg, #22c55e, #15803d)' }}
-              >
-                {busyId === r.id ? 'Submitting…' : '✓ Mark Job as Completed'}
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => onRequestCompletion(r.id)}
+                  disabled={busyId === r.id}
+                  className="w-full text-sm font-bold text-white py-3 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, #22c55e, #15803d)' }}
+                >
+                  {busyId === r.id ? 'Submitting…' : '✓ Mark Job as Completed'}
+                </button>
+
+                {!showPriceForm ? (
+                  <button
+                    onClick={() => setShowPriceForm(true)}
+                    className="w-full border border-dashed border-gray-200 text-gray-400 hover:border-indigo-300 hover:text-indigo-600 py-2 rounded-xl text-xs font-semibold transition-colors"
+                  >
+                    💰 Propose price adjustment
+                  </button>
+                ) : (
+                  <div className="border border-indigo-100 bg-indigo-50 rounded-xl p-4 space-y-3">
+                    <div>
+                      <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">Propose Price Adjustment</p>
+                      <p className="text-xs text-indigo-400 mt-0.5">Current: {r.currency} {r.price?.toLocaleString()}</p>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xs font-semibold text-gray-500 shrink-0">{r.currency}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={newPrice}
+                        onChange={(e) => setNewPrice(e.target.value)}
+                        placeholder="New price"
+                        className="flex-1 border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      />
+                    </div>
+                    <textarea
+                      rows={2}
+                      value={priceNote}
+                      onChange={(e) => setPriceNote(e.target.value)}
+                      placeholder="Reason (e.g. extra materials, scope change)…"
+                      className="w-full border border-indigo-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setShowPriceForm(false); setNewPrice(''); setPriceNote('') }}
+                        className="flex-1 border border-gray-200 text-gray-500 py-2 rounded-lg text-xs font-medium hover:bg-white transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleProposePrice}
+                        disabled={!newPrice || proposingPrice}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                      >
+                        {proposingPrice ? 'Sending…' : 'Send to Customer'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Provider proposed — awaiting consumer response */}
+            {isPriceProposed && r.priceProposedBy === 'provider' && (
+              <div className="space-y-2">
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+                  <p className="text-sm font-semibold text-indigo-800">⏳ Price adjustment sent to customer</p>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <span className="text-xs text-indigo-400">Original:</span>
+                    <span className="text-xs font-semibold text-gray-500 line-through">{r.currency} {r.price?.toLocaleString()}</span>
+                    <span className="text-indigo-300">→</span>
+                    <span className="text-xs font-bold text-indigo-700">{r.currency} {r.proposedPrice?.toLocaleString()}</span>
+                  </div>
+                  {r.proposedPriceNote && (
+                    <p className="text-xs text-indigo-500 italic mt-1">"{r.proposedPriceNote}"</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => onPriceDecline(r.id)}
+                  disabled={busyId === r.id}
+                  className="w-full border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 py-2 rounded-xl text-xs font-medium transition-colors disabled:opacity-50"
+                >
+                  {busyId === r.id ? 'Cancelling…' : 'Cancel this adjustment'}
+                </button>
+              </div>
+            )}
+
+            {/* Consumer made a counter-offer */}
+            {isPriceProposed && r.priceProposedBy === 'consumer' && (
+              <div className="space-y-2">
+                <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                  <p className="text-sm font-semibold text-amber-800">Customer made a counter offer</p>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <span className="text-xs text-amber-500">Their price:</span>
+                    <span className="text-sm font-bold text-amber-700">{r.currency} {r.proposedPrice?.toLocaleString()}</span>
+                    <span className="text-xs text-gray-400">(original: {r.currency} {r.price?.toLocaleString()})</span>
+                  </div>
+                  {r.proposedPriceNote && (
+                    <p className="text-xs text-amber-600 italic mt-1">"{r.proposedPriceNote}"</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onPriceDecline(r.id)}
+                    disabled={busyId === r.id}
+                    className="flex-1 border border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-200 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => onPriceAccept(r.id, r.proposedPrice)}
+                    disabled={busyId === r.id}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 shadow-sm"
+                  >
+                    {busyId === r.id ? 'Accepting…' : '✅ Accept Counter'}
+                  </button>
+                </div>
+              </div>
             )}
 
             {isPendingCompletion && (
@@ -272,6 +400,27 @@ export default function Requests() {
   const handleRequestCompletion = async (id) => {
     setBusyId(id)
     await requestCompletion(id)
+    await load()
+    setBusyId(null)
+  }
+
+  const handlePricePropose = async (id, proposedPrice, note) => {
+    setBusyId(id)
+    await proposePriceAdjustment(id, { proposedPrice, proposedPriceNote: note, proposedBy: 'provider' })
+    await load()
+    setBusyId(null)
+  }
+
+  const handlePriceAccept = async (id, proposedPrice) => {
+    setBusyId(id)
+    await acceptPriceAdjustment(id, proposedPrice)
+    await load()
+    setBusyId(null)
+  }
+
+  const handlePriceDecline = async (id) => {
+    setBusyId(id)
+    await declinePriceAdjustment(id)
     await load()
     setBusyId(null)
   }
@@ -409,6 +558,9 @@ export default function Requests() {
                     r={r}
                     onStatusChange={handleStatusChange}
                     onRequestCompletion={handleRequestCompletion}
+                    onPricePropose={handlePricePropose}
+                    onPriceAccept={handlePriceAccept}
+                    onPriceDecline={handlePriceDecline}
                     busyId={busyId}
                     onSaved={handleSaved}
                     currentUser={auth.currentUser}

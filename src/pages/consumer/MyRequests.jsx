@@ -9,6 +9,9 @@ import {
   updateRequestStatus,
   confirmCompletion,
   disputeCompletion,
+  acceptPriceAdjustment,
+  declinePriceAdjustment,
+  proposePriceAdjustment,
   sortByNewest,
   REQUEST_STATUS,
   STATUS_LABEL,
@@ -44,6 +47,12 @@ export default function MyRequests() {
   const [cancellingId, setCancellingId] = useState(null)
   const [confirmingId, setConfirmingId] = useState(null)
   const [disputingId, setDisputingId] = useState(null)
+  const [acceptingPriceId, setAcceptingPriceId] = useState(null)
+  const [decliningPriceId, setDecliningPriceId] = useState(null)
+  const [showCounterFormId, setShowCounterFormId] = useState(null)
+  const [counterPrice, setCounterPrice] = useState('')
+  const [counterNote, setCounterNote] = useState('')
+  const [sendingCounter, setSendingCounter] = useState(false)
   // Map<requestId, { id: reviewId, rating, comment }>
   const [reviewMap, setReviewMap] = useState(new Map())
   const [reviewingId, setReviewingId] = useState(null)
@@ -134,6 +143,62 @@ export default function MyRequests() {
       )
     } finally {
       setDisputingId(null)
+    }
+  }
+
+  const handleAcceptPrice = async (r) => {
+    setAcceptingPriceId(r.id)
+    try {
+      await acceptPriceAdjustment(r.id, r.proposedPrice)
+      setRequests((prev) =>
+        prev.map((req) =>
+          req.id === r.id
+            ? { ...req, status: REQUEST_STATUS.ACCEPTED, price: r.proposedPrice, proposedPrice: null, proposedPriceNote: null, priceProposedBy: null }
+            : req
+        )
+      )
+    } finally {
+      setAcceptingPriceId(null)
+    }
+  }
+
+  const handleDeclinePrice = async (r) => {
+    setDecliningPriceId(r.id)
+    try {
+      await declinePriceAdjustment(r.id)
+      setRequests((prev) =>
+        prev.map((req) =>
+          req.id === r.id
+            ? { ...req, status: REQUEST_STATUS.ACCEPTED, proposedPrice: null, proposedPriceNote: null, priceProposedBy: null }
+            : req
+        )
+      )
+    } finally {
+      setDecliningPriceId(null)
+    }
+  }
+
+  const handleSendCounter = async (r) => {
+    if (!counterPrice) return
+    setSendingCounter(true)
+    try {
+      await proposePriceAdjustment(r.id, {
+        proposedPrice: parseFloat(counterPrice),
+        proposedPriceNote: counterNote,
+        proposedBy: 'consumer',
+      })
+      setRequests((prev) =>
+        prev.map((req) =>
+          req.id === r.id
+            ? { ...req, proposedPrice: parseFloat(counterPrice), proposedPriceNote: counterNote, priceProposedBy: 'consumer' }
+            : req
+        )
+      )
+      setShowCounterFormId(null)
+      setCounterPrice('')
+      setCounterNote('')
+    } finally {
+      setSendingCounter(false)
     }
   }
 
@@ -328,6 +393,127 @@ export default function MyRequests() {
                     )}
                   </div>
                 </div>
+
+                {/* Price negotiation */}
+                {r.status === REQUEST_STATUS.PRICE_PROPOSED && r.priceProposedBy === 'provider' && (
+                  <div className="mt-4 pt-4 border-t border-indigo-100 space-y-3">
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                      <p className="text-sm font-bold text-indigo-800">Provider proposed a price adjustment</p>
+                      <div className="flex items-center gap-4 mt-2">
+                        <div>
+                          <p className="text-xs text-indigo-400">Original</p>
+                          <p className="text-sm font-semibold text-gray-400 line-through">{r.currency} {r.price?.toLocaleString()}</p>
+                        </div>
+                        <span className="text-indigo-300 text-xl">→</span>
+                        <div>
+                          <p className="text-xs text-indigo-400">Proposed</p>
+                          <p className="text-xl font-extrabold text-indigo-700">{r.currency} {r.proposedPrice?.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      {r.proposedPriceNote && (
+                        <div className="mt-2 bg-white rounded-lg px-3 py-2 border border-indigo-100">
+                          <p className="text-xs text-gray-500 italic">"{r.proposedPriceNote}"</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {showCounterFormId !== r.id ? (
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleDeclinePrice(r)}
+                            disabled={decliningPriceId === r.id || acceptingPriceId === r.id}
+                            className="flex-1 border border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-200 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                          >
+                            {decliningPriceId === r.id ? 'Declining…' : 'Decline'}
+                          </button>
+                          <button
+                            onClick={() => setShowCounterFormId(r.id)}
+                            className="flex-1 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                          >
+                            Counter Offer
+                          </button>
+                          <button
+                            onClick={() => handleAcceptPrice(r)}
+                            disabled={acceptingPriceId === r.id || decliningPriceId === r.id}
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 shadow-sm"
+                          >
+                            {acceptingPriceId === r.id ? 'Accepting…' : '✅ Accept'}
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => handleCancel(r.id)}
+                          disabled={cancellingId === r.id}
+                          className="w-full text-xs text-gray-400 hover:text-red-500 py-1 text-center transition-colors"
+                        >
+                          {cancellingId === r.id ? 'Cancelling…' : 'or cancel this request entirely'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                        <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">Your Counter Offer</p>
+                        <div className="flex gap-2 items-center">
+                          <span className="text-xs font-semibold text-gray-500 shrink-0">{r.currency}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={counterPrice}
+                            onChange={(e) => setCounterPrice(e.target.value)}
+                            placeholder={r.proposedPrice}
+                            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={counterNote}
+                          onChange={(e) => setCounterNote(e.target.value)}
+                          placeholder="Explain your counter offer…"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setShowCounterFormId(null); setCounterPrice(''); setCounterNote('') }}
+                            className="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg text-xs font-medium hover:bg-white transition-colors"
+                          >
+                            Back
+                          </button>
+                          <button
+                            onClick={() => handleSendCounter(r)}
+                            disabled={!counterPrice || sendingCounter}
+                            className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                          >
+                            {sendingCounter ? 'Sending…' : 'Send Counter'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Consumer counter sent — awaiting provider */}
+                {r.status === REQUEST_STATUS.PRICE_PROPOSED && r.priceProposedBy === 'consumer' && (
+                  <div className="mt-4 pt-4 border-t border-amber-100">
+                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                      <p className="text-sm font-bold text-amber-800">⏳ Counter offer sent to provider</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-amber-600">Your offer:</span>
+                        <span className="text-base font-bold text-amber-700">{r.currency} {r.proposedPrice?.toLocaleString()}</span>
+                        <span className="text-xs text-gray-400">(original: {r.currency} {r.price?.toLocaleString()})</span>
+                      </div>
+                      {r.proposedPriceNote && (
+                        <p className="text-xs text-amber-500 italic mt-1">"{r.proposedPriceNote}"</p>
+                      )}
+                      <button
+                        onClick={() => handleCancel(r.id)}
+                        disabled={cancellingId === r.id}
+                        className="mt-2 text-xs text-gray-400 hover:text-red-500 underline transition-colors"
+                      >
+                        {cancellingId === r.id ? 'Cancelling…' : 'Cancel request'}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Pending completion — confirm or dispute */}
                 {r.status === REQUEST_STATUS.PENDING_COMPLETION && (

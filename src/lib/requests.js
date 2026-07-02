@@ -18,6 +18,7 @@ export const REQUEST_STATUS = {
   CANCELLED: 'cancelled',
   PENDING_COMPLETION: 'pending_completion',
   DISPUTED: 'disputed',
+  PRICE_PROPOSED: 'price_proposed',
 }
 
 export const STATUS_LABEL = {
@@ -28,6 +29,7 @@ export const STATUS_LABEL = {
   cancelled: 'Cancelled',
   pending_completion: 'Awaiting Confirmation',
   disputed: 'Disputed',
+  price_proposed: 'Price Pending',
 }
 
 export const STATUS_BADGE = {
@@ -38,6 +40,7 @@ export const STATUS_BADGE = {
   cancelled: 'bg-gray-100 text-gray-500 border border-gray-200',
   pending_completion: 'bg-purple-50 text-purple-700 border border-purple-100',
   disputed: 'bg-orange-50 text-orange-700 border border-orange-100',
+  price_proposed: 'bg-indigo-50 text-indigo-700 border border-indigo-100',
 }
 
 export async function createRequest({
@@ -81,6 +84,42 @@ export async function getRequestsForProvider(providerId) {
 export async function updateRequestStatus(requestId, status) {
   return updateDoc(doc(db, 'requests', requestId), {
     status,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// Provider (or consumer) proposes a custom price deviation from the base listing.
+// proposedBy is 'provider' or 'consumer'.
+export async function proposePriceAdjustment(requestId, { proposedPrice, proposedPriceNote, proposedBy }) {
+  return updateDoc(doc(db, 'requests', requestId), {
+    status: REQUEST_STATUS.PRICE_PROPOSED,
+    proposedPrice,
+    proposedPriceNote: proposedPriceNote || '',
+    priceProposedBy: proposedBy,
+    priceProposedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// Either party accepts the proposed price — updates the live price and returns to accepted.
+export async function acceptPriceAdjustment(requestId, newPrice) {
+  return updateDoc(doc(db, 'requests', requestId), {
+    status: REQUEST_STATUS.ACCEPTED,
+    price: newPrice,
+    proposedPrice: null,
+    proposedPriceNote: null,
+    priceProposedBy: null,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// Either party declines the price proposal — reverts to accepted at the original price.
+export async function declinePriceAdjustment(requestId) {
+  return updateDoc(doc(db, 'requests', requestId), {
+    status: REQUEST_STATUS.ACCEPTED,
+    proposedPrice: null,
+    proposedPriceNote: null,
+    priceProposedBy: null,
     updatedAt: serverTimestamp(),
   })
 }
