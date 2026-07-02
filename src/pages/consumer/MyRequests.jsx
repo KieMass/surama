@@ -626,8 +626,8 @@ export default function MyRequests() {
                       <button
                         type="button"
                         onClick={() => handleSubmitReview(r)}
-                        disabled={submittingReview}
-                        className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
+                        disabled={submittingReview || (isReviewed && reviewRating === reviewMap.get(r.id)?.rating && reviewComment === (reviewMap.get(r.id)?.comment ?? ''))}
+                        className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                       >
                         {submittingReview ? 'Submitting…' : isReviewed ? 'Update review' : 'Submit review'}
                       </button>
