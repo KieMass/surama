@@ -69,12 +69,18 @@ export function NotificationProvider({ children }) {
         onSnapshot(
           q,
           (snap) => {
+            const now = Date.now()
+            const HOUR = 60 * 60 * 1000
             const count = snap.docs.filter((d) => {
-              const { status, priceProposedBy } = d.data()
-              return (
-                (status === 'price_proposed' && priceProposedBy === 'provider') ||
-                status === 'pending_completion'
-              )
+              const { status, priceProposedBy, updatedAt } = d.data()
+              const age = now - (updatedAt?.toMillis?.() ?? 0)
+              // Always badge: provider proposed price or marked job complete
+              if (status === 'price_proposed' && priceProposedBy === 'provider') return true
+              if (status === 'pending_completion') return true
+              // Timed badge: provider accepted (48h) or declined (7 days)
+              if (status === 'accepted' && age < 48 * HOUR) return true
+              if (status === 'declined' && age < 7 * 24 * HOUR) return true
+              return false
             }).length
             setRequestCount(count)
           },
