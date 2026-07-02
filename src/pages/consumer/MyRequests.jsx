@@ -379,21 +379,6 @@ export default function MyRequests() {
                       </button>
                     )}
 
-                    {r.status === REQUEST_STATUS.COMPLETED && isReviewed && !isReviewing && (
-                      <div className="flex flex-col items-end gap-1.5">
-                        {isSuccessFlash && (
-                          <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5">
-                            ✅ Thank you for your review!
-                          </span>
-                        )}
-                        <button
-                          onClick={() => openReviewForm(r)}
-                          className="text-xs font-semibold text-primary-600 border border-primary-200 hover:bg-primary-50 px-3 py-2 rounded-lg transition-colors"
-                        >
-                          ✏️ Update review
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -562,6 +547,37 @@ export default function MyRequests() {
                       >
                         💬 Go to inbox →
                       </Link>
+                    </div>
+                  </div>
+                )}
+
+                {/* Submitted review display */}
+                {r.status === REQUEST_STATUS.COMPLETED && isReviewed && !isReviewing && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    {isSuccessFlash && (
+                      <div className="mb-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 flex items-center gap-2">
+                        <span className="text-emerald-500 text-base">✅</span>
+                        <p className="text-sm font-semibold text-emerald-700">Review submitted — thank you!</p>
+                      </div>
+                    )}
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Your Review</p>
+                        <div className="flex gap-0.5 mb-1.5">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <span key={n} className={`text-lg leading-none ${n <= (reviewMap.get(r.id)?.rating ?? 0) ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
+                          ))}
+                        </div>
+                        {reviewMap.get(r.id)?.comment && (
+                          <p className="text-sm text-gray-600 italic">"{reviewMap.get(r.id).comment}"</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => openReviewForm(r)}
+                        className="text-xs font-semibold text-primary-600 border border-primary-200 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
+                      >
+                        ✏️ Edit
+                      </button>
                     </div>
                   </div>
                 )}
