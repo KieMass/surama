@@ -9,32 +9,46 @@ import NavBadge from '../../components/NavBadge'
 import { asset } from '../../lib/asset'
 import StarRating from '../../components/StarRating'
 import { averageRating } from '../../lib/reviews'
+import { getRequestsForConsumer, REQUEST_STATUS } from '../../lib/requests'
 
 const ALL = 'All'
+const ACTIVE_STATUSES = [
+  REQUEST_STATUS.PENDING,
+  REQUEST_STATUS.ACCEPTED,
+  REQUEST_STATUS.PRICE_PROPOSED,
+  REQUEST_STATUS.PENDING_COMPLETION,
+  REQUEST_STATUS.DISPUTED,
+]
 
 export default function ConsumerDashboard() {
   const { userDoc } = useAuth()
   const navigate = useNavigate()
   const { inboxCount, requestCount } = useNotifications()
-  const [services, setServices] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [activeCategory, setActiveCategory] = useState(ALL)
-  const [search, setSearch] = useState('')
+
+  const [services, setServices]               = useState([])
+  const [consumerRequests, setConsumerRequests] = useState([])
+  const [loading, setLoading]                 = useState(true)
+  const [activeCategory, setActiveCategory]   = useState(ALL)
+  const [search, setSearch]                   = useState('')
 
   useEffect(() => {
-    const fetchServices = async () => {
-      const q = query(collection(db, 'services'), where('active', '==', true))
-      const snap = await getDocs(q)
+    const fetchData = async () => {
+      const uid = auth.currentUser?.uid
+      const [snap, reqs] = await Promise.all([
+        getDocs(query(collection(db, 'services'), where('active', '==', true))),
+        uid ? getRequestsForConsumer(uid) : Promise.resolve([]),
+      ])
       setServices(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setConsumerRequests(reqs)
       setLoading(false)
     }
-    fetchServices()
+    fetchData()
   }, [])
 
   const categories = [ALL, ...new Set(services.map((s) => s.category))]
 
   const filtered = services.filter((s) => {
-    const matchesCat = activeCategory === ALL || s.category === activeCategory
+    const matchesCat    = activeCategory === ALL || s.category === activeCategory
     const matchesSearch = search === '' ||
       s.title.toLowerCase().includes(search.toLowerCase()) ||
       s.category.toLowerCase().includes(search.toLowerCase())
@@ -47,6 +61,13 @@ export default function ConsumerDashboard() {
   }
 
   const firstName = userDoc?.name?.split(' ')[0] ?? ''
+
+  // ── Derived request stats ──────────────────────────────────────────────────
+  const activeRequests = consumerRequests.filter((r) => ACTIVE_STATUSES.includes(r.status))
+  const completedReqs  = consumerRequests.filter((r) => r.status === REQUEST_STATUS.COMPLETED)
+  const totalSpent     = completedReqs.reduce((sum, r) => sum + (r.price ?? 0), 0)
+  const spentCurrency  = completedReqs[0]?.currency ?? 'GYD'
+  const hasAnyRequests = consumerRequests.length > 0
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,8 +108,6 @@ export default function ConsumerDashboard() {
           <h1 className="text-3xl font-extrabold text-white mb-4">
             {firstName ? `Hello, ${firstName}! 👋` : 'What can we help you with?'}
           </h1>
-
-          {/* Integrated search bar */}
           <div className="flex items-center bg-white rounded-xl shadow-md overflow-hidden max-w-xl">
             <span className="px-4 text-gray-400 text-lg">🔍</span>
             <input
@@ -99,18 +118,67 @@ export default function ConsumerDashboard() {
               className="flex-1 py-3 pr-4 text-sm text-gray-800 focus:outline-none placeholder-gray-400"
             />
             {search && (
-              <button
-                onClick={() => setSearch('')}
-                className="px-4 text-gray-400 hover:text-gray-600 text-lg"
-              >
-                ×
-              </button>
+              <button onClick={() => setSearch('')} className="px-4 text-gray-400 hover:text-gray-600 text-lg">×</button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Content */}
+      {/* ── Active requests widget / onboarding ── */}
+      {!loading && (
+        <div className="max-w-6xl mx-auto px-6 pt-6">
+          {!hasAnyRequests ? (
+            <div className="bg-primary-50 border border-primary-100 rounded-2xl p-5 flex items-center gap-4">
+              <span className="text-3xl flex-shrink-0">👋</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-primary-900">Welcome to Surama.net!</p>
+                <p className="text-sm text-primary-700 mt-0.5">
+                  Browse services below and tap a listing to send your first request to a provider.
+                </p>
+              </div>
+            </div>
+          ) : activeRequests.length > 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-bold text-gray-900 text-sm">Your Active Requests</h2>
+                <Link to="/consumer/requests" className="text-xs text-primary-600 font-semibold hover:underline">
+                  View all →
+                </Link>
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                {[
+                  { label: 'Pending',              status: REQUEST_STATUS.PENDING,            color: 'bg-amber-50 text-amber-700',   icon: '⏳' },
+                  { label: 'Accepted',             status: REQUEST_STATUS.ACCEPTED,           color: 'bg-emerald-50 text-emerald-700', icon: '✅' },
+                  { label: 'Awaiting confirmation', status: REQUEST_STATUS.PENDING_COMPLETION, color: 'bg-purple-50 text-purple-700', icon: '⏰' },
+                  { label: 'Disputed',             status: REQUEST_STATUS.DISPUTED,           color: 'bg-orange-50 text-orange-700', icon: '⚠️' },
+                  { label: 'Price pending',        status: REQUEST_STATUS.PRICE_PROPOSED,     color: 'bg-indigo-50 text-indigo-700', icon: '💰' },
+                ].map(({ label, status, color, icon }) => {
+                  const count = activeRequests.filter((r) => r.status === status).length
+                  if (count === 0) return null
+                  return (
+                    <Link
+                      key={status}
+                      to="/consumer/requests"
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${color} hover:opacity-80 transition-opacity`}
+                    >
+                      <span>{icon}</span>
+                      <span>{count} {label}</span>
+                    </Link>
+                  )
+                })}
+                {completedReqs.length > 0 && totalSpent > 0 && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 text-gray-500 text-xs font-semibold ml-auto">
+                    <span>💰</span>
+                    <span>{spentCurrency} {totalSpent.toLocaleString()} spent · {completedReqs.length} job{completedReqs.length !== 1 ? 's' : ''} done</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* ── Service browse ── */}
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Category pills */}
         <div className="flex flex-wrap gap-2 mb-6">
