@@ -123,11 +123,14 @@ service cloud.firestore {
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow read, create: if request.auth != null
-                            && request.auth.uid in
-                               get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants
-                            && (!('text' in request.resource.data)
-                                || request.resource.data.text.size() <= 4000);
+        allow read: if request.auth != null
+                    && request.auth.uid in
+                       get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        allow create: if request.auth != null
+                      && request.auth.uid in
+                         get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants
+                      && (!('text' in request.resource.data)
+                          || request.resource.data.text.size() <= 4000);
         allow update, delete: if false;
       }
     }
