@@ -40,6 +40,7 @@ export default function ServiceDetail() {
   const [startingChat, setStartingChat] = useState(false)
   const [chatError, setChatError] = useState('')
   const [providerListings, setProviderListings] = useState([])
+  const [providerReviewStats, setProviderReviewStats] = useState({ count: 0, avg: null })
   const [relatedServices, setRelatedServices] = useState([])
 
   useEffect(() => {
@@ -52,21 +53,36 @@ export default function ServiceDetail() {
         setService(svcData)
 
         if (svcData.providerId) {
+          // User doc requires auth — fetch separately so a failure doesn't block public data
+          getDoc(doc(db, 'users', svcData.providerId))
+            .then((snap) => { if (snap.exists()) setProvider(snap.data()) })
+            .catch(() => {})
+
+          // Listings and reviews are public (allow read: if true) — always succeeds
           try {
-            const [provSnap, plSnap] = await Promise.all([
-              getDoc(doc(db, 'users', svcData.providerId)),
+            const [plSnap, prSnap] = await Promise.all([
               getDocs(query(
                 collection(db, 'services'),
                 where('providerId', '==', svcData.providerId),
                 where('active', '==', true)
               )),
+              getDocs(query(
+                collection(db, 'reviews'),
+                where('providerId', '==', svcData.providerId)
+              )),
             ])
-            if (provSnap.exists()) setProvider(provSnap.data())
             const listings = plSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
             setProviderListings(listings)
             setRelatedServices(listings.filter((s) => s.id !== id).slice(0, 4))
+
+            const revDocs = prSnap.docs.map((d) => d.data())
+            const revCount = revDocs.length
+            const revAvg = revCount > 0
+              ? revDocs.reduce((sum, r) => sum + r.rating, 0) / revCount
+              : null
+            setProviderReviewStats({ count: revCount, avg: revAvg })
           } catch {
-            // Provider profile unreadable — page still renders without it
+            // Provider stats unavailable — page still renders without them
           }
         }
 
@@ -160,14 +176,8 @@ export default function ServiceDetail() {
     )
   }
 
-  const providerTotalReviews = providerListings.reduce((sum, s) => sum + (s.ratingCount ?? 0), 0)
-  const providerRatingData   = providerListings.reduce(
-    (acc, s) => ({ sum: acc.sum + (s.ratingSum ?? 0), count: acc.count + (s.ratingCount ?? 0) }),
-    { sum: 0, count: 0 }
-  )
-  const providerAvgRating = providerRatingData.count > 0
-    ? providerRatingData.sum / providerRatingData.count
-    : null
+  const providerTotalReviews = providerReviewStats.count
+  const providerAvgRating    = providerReviewStats.avg
   const ratingBreakdown = [5, 4, 3, 2, 1].map((n) => ({
     n,
     count: reviews.filter((r) => r.rating === n).length,
