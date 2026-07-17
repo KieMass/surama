@@ -137,9 +137,9 @@ export default function Register() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                 <input
-                  type="password" required minLength={6} value={form.password}
+                  type="password" required minLength={8} value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="Min. 6 characters"
+                  placeholder="Min. 8 characters"
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
                 />
               </div>

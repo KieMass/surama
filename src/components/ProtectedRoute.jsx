@@ -18,6 +18,7 @@ export default function ProtectedRoute({ children, allowedRole }) {
   }
 
   if (!user) return <Navigate to="/login" replace />
+  if (!user.emailVerified) return <Navigate to="/verify-email" replace />
 
   if (allowedRole && userDoc?.role !== allowedRole) {
     const redirect = roleDashboard[userDoc?.role] ?? '/login'

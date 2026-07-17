@@ -34,6 +34,12 @@ export default function CreateListing() {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0] || null
+    if (file && file.size > 5 * 1024 * 1024) {
+      setError('Image must be under 5 MB.')
+      e.target.value = ''
+      return
+    }
+    setError('')
     setImageFile(file)
     if (file) {
       const reader = new FileReader()

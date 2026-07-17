@@ -18,7 +18,11 @@ service cloud.firestore {
                     && request.resource.data.providerId == request.auth.uid
                     && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'provider'
                     && request.resource.data.price is number
-                    && request.resource.data.price >= 0;
+                    && request.resource.data.price >= 0
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() <= 200
+                    && request.resource.data.description is string
+                    && request.resource.data.description.size() <= 2000;
       allow update, delete: if request.auth != null
                              && resource.data.providerId == request.auth.uid;
     }
@@ -31,12 +35,12 @@ service cloud.firestore {
     match /requests/{requestId} {
       allow create: if request.auth != null
                     && request.resource.data.consumerId == request.auth.uid
-                    // Prevent providers from requesting their own services
                     && request.resource.data.providerId != request.auth.uid
-                    // Price must be a non-negative number when provided
                     && (request.resource.data.price == null
                         || (request.resource.data.price is number
-                            && request.resource.data.price >= 0));
+                            && request.resource.data.price >= 0))
+                    && (!('message' in request.resource.data)
+                        || request.resource.data.message.size() <= 1000);
 
       allow read: if request.auth != null
                   && (resource.data.consumerId == request.auth.uid
@@ -121,7 +125,9 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read, create: if request.auth != null
                             && request.auth.uid in
-                               get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+                               get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants
+                            && (!('text' in request.resource.data)
+                                || request.resource.data.text.size() <= 4000);
         allow update, delete: if false;
       }
     }

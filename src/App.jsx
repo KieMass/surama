@@ -13,6 +13,7 @@ import ConsumerDashboard from './pages/consumer/ConsumerDashboard'
 import MyRequests from './pages/consumer/MyRequests'
 import Inbox from './pages/Inbox'
 import Chat from './pages/Chat'
+import VerifyEmail from './pages/VerifyEmail'
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/services/:id" element={<ServiceDetail />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
 
         <Route
           path="/provider/dashboard"
