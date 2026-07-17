@@ -14,6 +14,7 @@ import MyRequests from './pages/consumer/MyRequests'
 import Inbox from './pages/Inbox'
 import Chat from './pages/Chat'
 import VerifyEmail from './pages/VerifyEmail'
+import ChatBubble from './components/ChatBubble'
 
 export default function App() {
   return (
@@ -86,6 +87,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+      <ChatBubble />
       </NotificationProvider>
     </BrowserRouter>
   )

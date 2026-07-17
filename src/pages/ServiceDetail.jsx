@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import { asset } from '../lib/asset'
 import { useAuth } from '../context/AuthContext'
@@ -39,6 +39,8 @@ export default function ServiceDetail() {
   const [requestSent, setRequestSent] = useState(false)
   const [startingChat, setStartingChat] = useState(false)
   const [chatError, setChatError] = useState('')
+  const [providerListings, setProviderListings] = useState([])
+  const [relatedServices, setRelatedServices] = useState([])
 
   useEffect(() => {
     const fetch = async () => {
@@ -51,8 +53,18 @@ export default function ServiceDetail() {
 
         if (svcData.providerId) {
           try {
-            const provSnap = await getDoc(doc(db, 'users', svcData.providerId))
+            const [provSnap, plSnap] = await Promise.all([
+              getDoc(doc(db, 'users', svcData.providerId)),
+              getDocs(query(
+                collection(db, 'services'),
+                where('providerId', '==', svcData.providerId),
+                where('active', '==', true)
+              )),
+            ])
             if (provSnap.exists()) setProvider(provSnap.data())
+            const listings = plSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+            setProviderListings(listings)
+            setRelatedServices(listings.filter((s) => s.id !== id).slice(0, 4))
           } catch {
             // Provider profile unreadable — page still renders without it
           }
@@ -148,6 +160,20 @@ export default function ServiceDetail() {
     )
   }
 
+  const providerTotalReviews = providerListings.reduce((sum, s) => sum + (s.ratingCount ?? 0), 0)
+  const providerRatingData   = providerListings.reduce(
+    (acc, s) => ({ sum: acc.sum + (s.ratingSum ?? 0), count: acc.count + (s.ratingCount ?? 0) }),
+    { sum: 0, count: 0 }
+  )
+  const providerAvgRating = providerRatingData.count > 0
+    ? providerRatingData.sum / providerRatingData.count
+    : null
+  const ratingBreakdown = [5, 4, 3, 2, 1].map((n) => ({
+    n,
+    count: reviews.filter((r) => r.rating === n).length,
+  }))
+  const ratingMax = Math.max(...ratingBreakdown.map((b) => b.count), 1)
+
   const initials = provider?.name
     ? provider.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
     : '?'
@@ -218,7 +244,7 @@ export default function ServiceDetail() {
             {/* Provider card */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
               <h2 className="font-bold text-gray-900 mb-4 text-lg">About the provider</h2>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 mb-5">
                 <div
                   className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-extrabold text-lg flex-shrink-0"
                   style={{ background: 'linear-gradient(135deg, #ff5a5f, #c93338)' }}
@@ -227,7 +253,29 @@ export default function ServiceDetail() {
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900 text-lg">{provider?.name ?? 'Local Provider'}</p>
-                  <p className="text-sm text-gray-500">Service Provider on Surama.net</p>
+                  <p className="text-sm text-gray-500">
+                    Member since {provider?.createdAt
+                      ? new Date(provider.createdAt.toMillis()).getFullYear()
+                      : '—'}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 pt-4 border-t border-gray-100 text-center">
+                <div>
+                  <p className="text-xl font-extrabold text-gray-900">{providerListings.length || '—'}</p>
+                  <p className="text-xs text-gray-400">Listing{providerListings.length !== 1 ? 's' : ''}</p>
+                </div>
+                <div className="border-x border-gray-100">
+                  <p className="text-xl font-extrabold text-gray-900">
+                    {providerAvgRating ? (
+                      <>{providerAvgRating.toFixed(1)} <span className="text-amber-400 text-base">★</span></>
+                    ) : '—'}
+                  </p>
+                  <p className="text-xs text-gray-400">Avg rating</p>
+                </div>
+                <div>
+                  <p className="text-xl font-extrabold text-gray-900">{providerTotalReviews || '—'}</p>
+                  <p className="text-xs text-gray-400">Review{providerTotalReviews !== 1 ? 's' : ''}</p>
                 </div>
               </div>
             </div>
@@ -259,17 +307,34 @@ export default function ServiceDetail() {
               {reviews.length === 0 ? (
                 <p className="text-sm text-gray-400">No reviews yet — be the first to book and leave one.</p>
               ) : (
-                <div className="space-y-4">
-                  {reviews.map((rv) => (
-                    <div key={rv.id} className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-semibold text-gray-800">{rv.consumerName || 'Verified customer'}</p>
-                        <span className="text-amber-400 text-sm">{'★'.repeat(rv.rating)}{'☆'.repeat(5 - rv.rating)}</span>
+                <>
+                  <div className="mb-5 space-y-1.5">
+                    {ratingBreakdown.map(({ n, count }) => (
+                      <div key={n} className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 w-3 text-right">{n}</span>
+                        <span className="text-amber-400 text-xs">★</span>
+                        <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-amber-400 h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${(count / ratingMax) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-400 w-4 text-right">{count}</span>
                       </div>
-                      {rv.comment && <p className="text-sm text-gray-600">{rv.comment}</p>}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                  <div className="space-y-4">
+                    {reviews.map((rv) => (
+                      <div key={rv.id} className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-semibold text-gray-800">{rv.consumerName || 'Verified customer'}</p>
+                          <span className="text-amber-400 text-sm">{'★'.repeat(rv.rating)}{'☆'.repeat(5 - rv.rating)}</span>
+                        </div>
+                        {rv.comment && <p className="text-sm text-gray-600">{rv.comment}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -421,6 +486,43 @@ export default function ServiceDetail() {
           </div>
 
         </div>
+
+        {relatedServices.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-xl font-bold text-gray-900 mb-5">More {service.category} services</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {relatedServices.map((s) => (
+                <Link
+                  key={s.id}
+                  to={`/services/${s.id}`}
+                  className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-primary-200 hover:shadow-md transition-all"
+                >
+                  {s.imageUrl ? (
+                    <img src={s.imageUrl} alt={s.title} className="w-full h-32 object-cover" />
+                  ) : (
+                    <div
+                      className="w-full h-32 flex items-center justify-center"
+                      style={{ background: 'linear-gradient(135deg, #fff1f2, #ffcdd0)' }}
+                    >
+                      <span className="text-4xl font-black text-primary-200 select-none">
+                        {s.category?.[0] ?? 'S'}
+                      </span>
+                    </div>
+                  )}
+                  <div className="p-3">
+                    <p className="text-xs font-bold text-primary-600 mb-1">{s.category}</p>
+                    <p className="font-semibold text-gray-800 text-sm leading-snug line-clamp-2 mb-1">
+                      {s.title}
+                    </p>
+                    <p className="text-primary-600 font-bold text-sm">
+                      {s.currency} {s.price?.toLocaleString()}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

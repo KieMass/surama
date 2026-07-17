@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, getDoc, orderBy, limit } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
@@ -294,7 +294,7 @@ function TrustStrip() {
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
-function StatsStrip() {
+function StatsStrip({ stats }) {
   return (
     <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #ff5a5f 0%, #e8464b 50%, #c93338 100%)' }}>
       {/* Dot pattern overlay */}
@@ -303,12 +303,66 @@ function StatsStrip() {
         style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }}
       />
       <div className="relative max-w-4xl mx-auto px-6 py-10 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
-        {STATS.map((s) => (
+        {(stats ?? STATS).map((s) => (
           <div key={s.label}>
             <p className="text-3xl font-extrabold text-white">{s.value}</p>
             <p className="text-sm text-primary-100 mt-1">{s.label}</p>
           </div>
         ))}
+      </div>
+    </section>
+  )
+}
+
+// ─── Top Rated Strip ──────────────────────────────────────────────────────────
+function TopRatedStrip({ services }) {
+  const topRated = services
+    .filter((s) => (s.ratingCount ?? 0) >= 1)
+    .sort((a, b) => (b.ratingSum / b.ratingCount) - (a.ratingSum / a.ratingCount))
+    .slice(0, 8)
+
+  if (topRated.length === 0) return null
+
+  return (
+    <section className="bg-white py-14 px-6 border-b border-gray-100">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-6">
+          <SectionBadge>Top Rated</SectionBadge>
+          <h2 className="text-3xl font-extrabold text-gray-900">Highest-rated services</h2>
+          <p className="text-gray-500 text-sm mt-2">Loved by customers across Guyana</p>
+        </div>
+        <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2" style={{ scrollbarWidth: 'none' }}>
+          {topRated.map((s) => {
+            const avg = s.ratingSum / s.ratingCount
+            return (
+              <Link
+                key={s.id}
+                to={`/services/${s.id}`}
+                className="flex-shrink-0 w-52 bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-primary-200 hover:shadow-xl transition-all hover:-translate-y-0.5"
+              >
+                {s.imageUrl ? (
+                  <img src={s.imageUrl} alt={s.title} className="w-full h-32 object-cover" />
+                ) : (
+                  <div className="w-full h-32 flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, #fff1f2, #ffcdd0)' }}>
+                    <span className="text-4xl font-black text-primary-200 select-none">
+                      {s.category?.[0] ?? 'S'}
+                    </span>
+                  </div>
+                )}
+                <div className="p-3">
+                  <p className="text-xs font-bold text-primary-600 mb-0.5">{s.category}</p>
+                  <p className="font-semibold text-gray-800 text-sm leading-snug line-clamp-2 mb-1.5">{s.title}</p>
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-amber-400 text-xs">{'★'.repeat(Math.round(avg))}{'☆'.repeat(5 - Math.round(avg))}</span>
+                    <span className="text-xs text-gray-400">({s.ratingCount})</span>
+                  </div>
+                  <p className="text-primary-600 font-bold text-sm">{s.currency} {s.price?.toLocaleString()}</p>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
       </div>
     </section>
   )
@@ -532,6 +586,53 @@ function HowItWorks() {
   )
 }
 
+// ─── Testimonials ─────────────────────────────────────────────────────────────
+function TestimonialsSection({ testimonials, services }) {
+  if (testimonials.length === 0) return null
+  const serviceMap = Object.fromEntries(services.map((s) => [s.id, s]))
+  const display = testimonials.slice(0, 3)
+
+  return (
+    <section className="bg-white py-20 px-6 border-t border-gray-100">
+      <div className="max-w-5xl mx-auto">
+        <div className="text-center mb-12">
+          <SectionBadge>Reviews</SectionBadge>
+          <h2 className="text-3xl font-extrabold text-gray-900">What customers are saying</h2>
+          <p className="text-gray-500 text-sm mt-2">Real feedback from real people across Guyana</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {display.map((review) => {
+            const svc = serviceMap[review.serviceId]
+            return (
+              <div key={review.id} className="bg-gray-50 rounded-2xl p-6 border border-gray-100 flex flex-col">
+                <div className="flex gap-0.5 mb-3">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <span key={n} className={`text-lg ${n <= review.rating ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
+                  ))}
+                </div>
+                <p className="text-sm text-gray-700 italic leading-relaxed flex-1">
+                  "{review.comment}"
+                </p>
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <p className="text-sm font-semibold text-gray-800">{review.consumerName || 'Verified customer'}</p>
+                  {svc && (
+                    <Link
+                      to={`/services/${svc.id}`}
+                      className="text-xs text-primary-600 hover:underline mt-0.5 block truncate"
+                    >
+                      {svc.title}
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ─── CTA Banner ───────────────────────────────────────────────────────────────
 function CTABanner() {
   return (
@@ -624,14 +725,25 @@ export default function HomePage() {
   const [services, setServices] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState('All')
+  const [testimonials, setTestimonials] = useState([])
+  const [liveStats, setLiveStats] = useState(STATS)
   const listingsRef = useRef(null)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const q = query(collection(db, 'services'), where('active', '==', true))
-        const snap = await getDocs(q)
-        const raw = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        const [servicesSnap, testimonialsSnap] = await Promise.all([
+          getDocs(query(collection(db, 'services'), where('active', '==', true))),
+          getDocs(query(
+            collection(db, 'reviews'),
+            where('rating', '>=', 4),
+            orderBy('rating', 'desc'),
+            orderBy('createdAt', 'desc'),
+            limit(6)
+          )).catch(() => ({ docs: [] })),
+        ])
+
+        const raw = servicesSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
 
         const uniqueIds = [...new Set(raw.map((s) => s.providerId).filter(Boolean))]
         const nameMap = {}
@@ -644,10 +756,25 @@ export default function HomePage() {
           })
         )
 
-        setServices(
-          raw
-            .map((s) => ({ ...s, providerName: nameMap[s.providerId] }))
-            .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+        const sorted = raw
+          .map((s) => ({ ...s, providerName: nameMap[s.providerId] }))
+          .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+
+        setServices(sorted)
+
+        const reviewsTotal   = raw.reduce((sum, s) => sum + (s.ratingCount ?? 0), 0)
+        const uniqueProviders = new Set(raw.map((s) => s.providerId).filter(Boolean)).size
+        setLiveStats([
+          { value: raw.length.toString(),        label: 'Active listings' },
+          { value: uniqueProviders.toString(),    label: 'Local providers' },
+          { value: reviewsTotal > 0 ? reviewsTotal.toString() : '100%', label: reviewsTotal > 0 ? 'Reviews left' : 'Guyana-based' },
+          { value: 'Free',                        label: 'To browse & list' },
+        ])
+
+        setTestimonials(
+          testimonialsSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((r) => r.comment?.trim())
         )
       } finally {
         setLoading(false)
@@ -668,7 +795,8 @@ export default function HomePage() {
       <Navbar onBrowse={scrollToListings} />
       <HeroSlider onBrowse={scrollToListings} />
       <TrustStrip />
-      <StatsStrip />
+      <StatsStrip stats={liveStats} />
+      <TopRatedStrip services={services} />
       <CategoryShowcase onSelect={setActiveCategory} listingsRef={listingsRef} />
       <div ref={listingsRef}>
         <ListingsSection
@@ -679,6 +807,7 @@ export default function HomePage() {
         />
       </div>
       <HowItWorks />
+      <TestimonialsSection testimonials={testimonials} services={services} />
       <CTABanner />
       <Footer />
     </div>
