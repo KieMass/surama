@@ -1,0 +1,23 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Provider listing images live at listings/{providerId}/{filename}.
+    // Anyone can read (public marketplace). Only the owning provider can
+    // write or delete their own folder, and only image files under 5 MB.
+    match /listings/{providerId}/{allPaths=**} {
+      allow read:   if true;
+      allow write:  if request.auth != null
+                    && request.auth.uid == providerId
+                    && request.resource.size < 5 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null
+                    && request.auth.uid == providerId;
+    }
+
+    // Deny every other path by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
