@@ -29,9 +29,6 @@ function VerificationBanner({ user }) {
           Resend email
         </button>
       )}
-      <Link to="/verify-email" className="font-semibold underline hover:text-amber-900 transition-colors">
-        I've verified →
-      </Link>
     </div>
   )
 }

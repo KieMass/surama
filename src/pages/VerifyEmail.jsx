@@ -22,19 +22,19 @@ export default function VerifyEmail() {
     }
   }
 
+  const goToDashboard = () => {
+    const role = userDoc?.role
+    navigate(role === 'provider' ? '/provider/dashboard' : '/consumer/dashboard', { replace: true })
+  }
+
   const handleContinue = async () => {
     setChecking(true)
     setError('')
     try {
       await auth.currentUser.reload()
-      if (auth.currentUser.emailVerified) {
-        const role = userDoc?.role
-        navigate(role === 'provider' ? '/provider/dashboard' : '/consumer/dashboard', { replace: true })
-      } else {
-        setError('Email not verified yet — please check your inbox and click the link first.')
-      }
-    } catch (err) {
-      setError(err.message)
+      goToDashboard()
+    } catch {
+      goToDashboard()
     } finally {
       setChecking(false)
     }
