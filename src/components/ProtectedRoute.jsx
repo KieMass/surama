@@ -1,9 +1,39 @@
-import { Navigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Navigate, Link } from 'react-router-dom'
+import { sendEmailVerification } from 'firebase/auth'
+import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 
 const roleDashboard = {
   provider: '/provider/dashboard',
   consumer: '/consumer/dashboard',
+}
+
+function VerificationBanner({ user }) {
+  const [sent, setSent] = useState(false)
+
+  const resend = async () => {
+    try {
+      await sendEmailVerification(user)
+      setSent(true)
+    } catch {}
+  }
+
+  return (
+    <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-center text-xs text-amber-800 flex items-center justify-center gap-3 flex-wrap">
+      <span>📬 Please verify your email address to keep your account secure.</span>
+      {sent ? (
+        <span className="font-semibold text-emerald-700">Verification email sent!</span>
+      ) : (
+        <button onClick={resend} className="font-semibold underline hover:text-amber-900 transition-colors">
+          Resend email
+        </button>
+      )}
+      <Link to="/verify-email" className="font-semibold underline hover:text-amber-900 transition-colors">
+        I've verified →
+      </Link>
+    </div>
+  )
 }
 
 export default function ProtectedRoute({ children, allowedRole }) {
@@ -18,12 +48,16 @@ export default function ProtectedRoute({ children, allowedRole }) {
   }
 
   if (!user) return <Navigate to="/login" replace />
-  if (!user.emailVerified) return <Navigate to="/verify-email" replace />
 
   if (allowedRole && userDoc?.role !== allowedRole) {
     const redirect = roleDashboard[userDoc?.role] ?? '/login'
     return <Navigate to={redirect} replace />
   }
 
-  return children
+  return (
+    <>
+      {!user.emailVerified && <VerificationBanner user={user} />}
+      {children}
+    </>
+  )
 }
