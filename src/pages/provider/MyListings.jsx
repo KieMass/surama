@@ -130,6 +130,12 @@ export default function MyListings() {
                 >
                   {listing.active ? '● Active' : '○ Inactive'}
                 </button>
+                <Link
+                  to={`/provider/listings/${listing.id}/edit`}
+                  className="px-3 py-1 rounded-full text-xs font-semibold bg-primary-50 text-primary-600 hover:bg-primary-100 transition-colors"
+                >
+                  Edit
+                </Link>
                 <button
                   onClick={() => deleteListing(listing.id)}
                   className="px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
