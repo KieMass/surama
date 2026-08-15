@@ -47,6 +47,9 @@ export default function Inbox() {
           <Link to={dashboardPath} className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
             ← Dashboard
           </Link>
+          <Link to="/account" className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
+            ⚙️ Account
+          </Link>
           <button onClick={handleSignOut} className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
             Sign out
           </button>

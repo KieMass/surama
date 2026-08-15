@@ -7,12 +7,14 @@ import Register from './pages/Register'
 import ServiceDetail from './pages/ServiceDetail'
 import ProviderDashboard from './pages/provider/ProviderDashboard'
 import CreateListing from './pages/provider/CreateListing'
+import EditListing from './pages/provider/EditListing'
 import MyListings from './pages/provider/MyListings'
 import ProviderRequests from './pages/provider/Requests'
 import ConsumerDashboard from './pages/consumer/ConsumerDashboard'
 import MyRequests from './pages/consumer/MyRequests'
 import Inbox from './pages/Inbox'
 import Chat from './pages/Chat'
+import Account from './pages/Account'
 import VerifyEmail from './pages/VerifyEmail'
 import ChatBubble from './components/ChatBubble'
 
@@ -52,6 +54,14 @@ export default function App() {
           }
         />
         <Route
+          path="/provider/listings/:id/edit"
+          element={
+            <ProtectedRoute allowedRole="provider">
+              <EditListing />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/provider/requests"
           element={
             <ProtectedRoute allowedRole="provider">
@@ -83,6 +93,10 @@ export default function App() {
         <Route
           path="/chat/:conversationId"
           element={<ProtectedRoute><Chat /></ProtectedRoute>}
+        />
+        <Route
+          path="/account"
+          element={<ProtectedRoute><Account /></ProtectedRoute>}
         />
 
         <Route path="*" element={<Navigate to="/login" replace />} />

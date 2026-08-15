@@ -178,6 +178,9 @@ export default function ProviderDashboard() {
           <Link to="/inbox" className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
             <NavBadge count={inboxCount}>💬 Inbox</NavBadge>
           </Link>
+          <Link to="/account" className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
+            ⚙️ Account
+          </Link>
           <button onClick={handleSignOut} className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors">
             Sign out
           </button>

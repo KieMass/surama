@@ -88,6 +88,12 @@ export default function ConsumerDashboard() {
             <NavBadge count={inboxCount}>💬 Inbox</NavBadge>
           </button>
           <button
+            onClick={() => navigate('/account')}
+            className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"
+          >
+            ⚙️ Account
+          </button>
+          <button
             onClick={handleSignOut}
             className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"
           >
