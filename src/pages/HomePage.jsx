@@ -130,7 +130,7 @@ function Navbar({ onBrowse }) {
             <>
               <Link
                 to={dashboardPath}
-                className="text-sm text-gray-600 hover:text-primary-600 font-medium hidden sm:block transition-colors"
+                className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"
               >
                 {dashboardLabel}
               </Link>
@@ -143,7 +143,7 @@ function Navbar({ onBrowse }) {
             </>
           ) : (
             <>
-              <Link to="/login" className="text-sm text-gray-600 hover:text-gray-900 font-medium hidden sm:block">
+              <Link to="/login" className="text-sm text-gray-600 hover:text-gray-900 font-medium">
                 Sign In
               </Link>
               <Link
