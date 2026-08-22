@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, Ban, CheckCircle2, BadgeCheck, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import AdminLayout from './AdminLayout'
+import { formatDate, StatCard } from './shared'
 import {
   fetchUsersPage,
   fetchUserStats,
@@ -27,21 +28,6 @@ const ROLE_LABEL = { admin: 'Admin', provider: 'Provider', consumer: 'Consumer' 
 function initials(name) {
   if (!name) return '?'
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
-}
-
-function formatDate(ts) {
-  const d = ts?.toDate?.()
-  if (!d) return '—'
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-}
-
-function StatCard({ label, value }) {
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-      <p className="text-2xl font-extrabold text-gray-900">{value ?? '—'}</p>
-      <p className="text-xs text-gray-500 mt-1">{label}</p>
-    </div>
-  )
 }
 
 // ─── Status counts for one side of a user's booking history ────────────────
@@ -212,6 +198,9 @@ export default function AdminUsers() {
   const [detailUser, setDetailUser] = useState(null)
   const [detailData, setDetailData] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  // Tracks which user's detail fetch is the most recent one, so an older
+  // fetch resolving after a newer one was started can't clobber it.
+  const latestDetailRequest = useRef(null)
 
   const load = async () => {
     setLoading(true)
@@ -301,13 +290,29 @@ export default function AdminUsers() {
     setConfirmAction(null)
   }
 
-  const requestDisableToggle = (u) => {
+  // Re-checks the active-admin count against the server immediately before
+  // blocking (rather than trusting the possibly-stale `stats` in state) —
+  // this narrows, though can't fully close without a transaction/Cloud
+  // Function, the window where two admins racing this action at once could
+  // both pass a stale check and leave zero admins.
+  const stillLastAdmin = async (u) => {
+    setBusyId(u.id)
+    try {
+      const fresh = await fetchUserStats()
+      setStats(fresh)
+      return fresh.activeAdmins <= 1
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const requestDisableToggle = async (u) => {
     // Re-enabling isn't destructive — just do it.
     if (u.disabled) {
       toggleDisabled(u)
       return
     }
-    if (u.role === 'admin' && !u.disabled && (stats?.activeAdmins ?? 0) <= 1) {
+    if (u.role === 'admin' && (await stillLastAdmin(u))) {
       setRowError((prev) => ({ ...prev, [u.id]: "Can't disable the last remaining admin." }))
       return
     }
@@ -319,14 +324,14 @@ export default function AdminUsers() {
     })
   }
 
-  const requestRoleChange = (u, role) => {
+  const requestRoleChange = async (u, role) => {
     if (role === u.role) return
     // Routine consumer ↔ provider changes don't need a confirmation.
     if (u.role !== 'admin' && role !== 'admin') {
       changeRole(u, role)
       return
     }
-    if (u.role === 'admin' && !u.disabled && (stats?.activeAdmins ?? 0) <= 1) {
+    if (u.role === 'admin' && (await stillLastAdmin(u))) {
       setRowError((prev) => ({ ...prev, [u.id]: "Can't remove the last remaining admin." }))
       return
     }
@@ -341,14 +346,18 @@ export default function AdminUsers() {
   }
 
   const openDetail = async (u) => {
+    latestDetailRequest.current = u.id
     setDetailUser(u)
     setDetailLoading(true)
     try {
-      setDetailData(await fetchUserDetail(u.id))
+      const data = await fetchUserDetail(u.id)
+      if (latestDetailRequest.current === u.id) setDetailData(data)
     } catch {
-      setDetailData({ listings: [], requestsAsConsumer: [], requestsAsProvider: [], reviewsWritten: [] })
+      if (latestDetailRequest.current === u.id) {
+        setDetailData({ listings: [], requestsAsConsumer: [], requestsAsProvider: [], reviewsWritten: [] })
+      }
     } finally {
-      setDetailLoading(false)
+      if (latestDetailRequest.current === u.id) setDetailLoading(false)
     }
   }
 

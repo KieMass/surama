@@ -5,13 +5,13 @@ import {
   getCountFromServer,
   doc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   orderBy,
   limit,
   startAfter,
   increment,
+  runTransaction,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 
@@ -139,16 +139,30 @@ export async function fetchAllReviews() {
 
 // Removes an abusive/fake review and corrects the listing's rating
 // aggregate to match (mirrors the increment createReview() applied).
+// Runs as a transaction so the delete + aggregate correction either both
+// happen or neither does, and re-reads the review inside the transaction
+// so a double-click (or two admins deleting the same review at once) is a
+// harmless no-op on the second attempt instead of double-decrementing the
+// listing's rating.
 export async function deleteReview(review) {
-  await deleteDoc(doc(db, 'reviews', review.id))
-  if (review.serviceId) {
-    try {
-      await updateDoc(doc(db, 'services', review.serviceId), {
-        ratingSum: increment(-review.rating),
-        ratingCount: increment(-1),
-      })
-    } catch {
-      // Listing may have been deleted separately — the review is still gone.
+  await runTransaction(db, async (tx) => {
+    const reviewRef = doc(db, 'reviews', review.id)
+    const reviewSnap = await tx.get(reviewRef)
+    if (!reviewSnap.exists()) return // already deleted — nothing to do
+
+    const data = reviewSnap.data()
+    tx.delete(reviewRef)
+
+    if (data.serviceId) {
+      const serviceRef = doc(db, 'services', data.serviceId)
+      const serviceSnap = await tx.get(serviceRef)
+      // Listing may have been deleted separately — the review delete still stands.
+      if (serviceSnap.exists()) {
+        tx.update(serviceRef, {
+          ratingSum: increment(-data.rating),
+          ratingCount: increment(-1),
+        })
+      }
     }
-  }
+  })
 }

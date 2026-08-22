@@ -4,22 +4,8 @@ import { Search, CheckCircle2, Ban } from 'lucide-react'
 import { db } from '../../firebase'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import AdminLayout from './AdminLayout'
+import { formatDate, StatCard } from './shared'
 import { fetchAllListings, setListingActive } from '../../lib/admin'
-
-function formatDate(ts) {
-  const d = ts?.toDate?.()
-  if (!d) return '—'
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-}
-
-function StatCard({ label, value }) {
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-      <p className="text-2xl font-extrabold text-gray-900">{value}</p>
-      <p className="text-xs text-gray-500 mt-1">{label}</p>
-    </div>
-  )
-}
 
 export default function AdminListings() {
   const [listings, setListings] = useState([])
