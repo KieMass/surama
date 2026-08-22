@@ -10,10 +10,24 @@ service cloud.firestore {
 
     // ── Users ──────────────────────────────────────────────────────────────
     // Any authenticated user can read any profile (marketplace providers are
-    // publicly discoverable). Only the account owner can write their own doc.
+    // publicly discoverable). The account owner can create their own doc at
+    // registration and edit their own profile fields — but NOT the
+    // moderation fields (role/disabled/verified), which are admin-only
+    // below. Without that split, any signed-in user could self-promote to
+    // admin with a raw updateDoc() call, bypassing the admin UI entirely.
     match /users/{userId} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.role in ['consumer', 'provider']
+                    && !('disabled' in request.resource.data)
+                    && !('verified' in request.resource.data);
+
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['role', 'disabled', 'verified']);
 
       // Admins can disable/re-enable accounts, change roles, and toggle a
       // provider's verified badge from the admin pages, but can't otherwise
@@ -38,8 +52,19 @@ service cloud.firestore {
                     && request.resource.data.title.size() <= 200
                     && request.resource.data.description is string
                     && request.resource.data.description.size() <= 2000;
-      allow update, delete: if request.auth != null
-                             && resource.data.providerId == request.auth.uid;
+      // Same field validation as create — an owner edit shouldn't be able to
+      // set a negative price or an oversized title/description that create
+      // already blocks.
+      allow update: if request.auth != null
+                    && resource.data.providerId == request.auth.uid
+                    && request.resource.data.price is number
+                    && request.resource.data.price >= 0
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() <= 200
+                    && request.resource.data.description is string
+                    && request.resource.data.description.size() <= 2000;
+      allow delete: if request.auth != null
+                    && resource.data.providerId == request.auth.uid;
 
       // Admins can take a listing down (or restore it) and correct the
       // rating aggregate when they delete a review, but can't touch
@@ -68,13 +93,25 @@ service cloud.firestore {
                       || resource.data.providerId == request.auth.uid
                       || isAdmin());
 
-      // Providers can update any field except the four immutable identity fields.
+      // Providers can update any field except the four immutable identity
+      // fields. If they touch status, it must be one they're actually
+      // allowed to set (matches the transitions requests.js performs on
+      // their behalf — accept/decline, counter-propose, mark complete).
+      // If they touch price/proposedPrice, it must stay a valid amount,
+      // same as the create-time check.
       allow update: if request.auth != null
                     && resource.data.providerId == request.auth.uid
                     && !("consumerId"    in request.resource.data.diff(resource.data).affectedKeys())
                     && !("providerId"    in request.resource.data.diff(resource.data).affectedKeys())
                     && !("serviceId"     in request.resource.data.diff(resource.data).affectedKeys())
-                    && !("consumerEmail" in request.resource.data.diff(resource.data).affectedKeys());
+                    && !("consumerEmail" in request.resource.data.diff(resource.data).affectedKeys())
+                    && (!("status" in request.resource.data.diff(resource.data).affectedKeys())
+                        || request.resource.data.status in
+                             ['accepted', 'declined', 'price_proposed', 'pending_completion'])
+                    && (!("price" in request.resource.data)
+                        || (request.resource.data.price is number && request.resource.data.price >= 0))
+                    && (!("proposedPrice" in request.resource.data)
+                        || (request.resource.data.proposedPrice is number && request.resource.data.proposedPrice >= 0));
 
       // Consumers may only change status (and add timestamp/price fields). Identity
       // fields must stay the same. Allowed transitions:
