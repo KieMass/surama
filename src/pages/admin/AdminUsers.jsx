@@ -37,6 +37,36 @@ function StatCard({ label, value }) {
   )
 }
 
+// Blocking confirmation for actions that change a user's access — disabling
+// an account, or granting/removing admin rights.
+function ConfirmDialog({ action, busy, onConfirm, onCancel }) {
+  if (!action) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-2">{action.title}</h3>
+        <p className="text-sm text-gray-600 mb-6 leading-relaxed">{action.message}</p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-50"
+          >
+            {busy ? 'Saving…' : action.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminUsers() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -46,6 +76,8 @@ export default function AdminUsers() {
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState(null)
   const [rowError, setRowError] = useState({})
+  const [confirmAction, setConfirmAction] = useState(null)
+  const [confirmBusy, setConfirmBusy] = useState(false)
 
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
@@ -90,11 +122,64 @@ export default function AdminUsers() {
       setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, disabled: !u.disabled } : x)))
     })
 
-  const changeRole = (u, role) => {
-    if (role === u.role) return
+  const changeRole = (u, role) =>
     withRow(u.id, async () => {
       await setUserRole(u.id, role)
       setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, role } : x)))
+    })
+
+  // Count of admins who could actually sign in right now — used to stop the
+  // panel from disabling or demoting away the last one and locking everyone
+  // out of admin access.
+  const activeAdminCount = useMemo(
+    () => users.filter((u) => u.role === 'admin' && !u.disabled).length,
+    [users]
+  )
+
+  const runConfirmed = async () => {
+    if (!confirmAction) return
+    setConfirmBusy(true)
+    await confirmAction.run()
+    setConfirmBusy(false)
+    setConfirmAction(null)
+  }
+
+  const requestDisableToggle = (u) => {
+    // Re-enabling isn't destructive — just do it.
+    if (u.disabled) {
+      toggleDisabled(u)
+      return
+    }
+    if (u.role === 'admin' && activeAdminCount <= 1) {
+      setRowError((prev) => ({ ...prev, [u.id]: "Can't disable the last remaining admin." }))
+      return
+    }
+    setConfirmAction({
+      title: 'Disable this account?',
+      message: `${u.name || u.email} will be signed out and won't be able to log in until you re-enable them.`,
+      confirmLabel: 'Disable account',
+      run: () => toggleDisabled(u),
+    })
+  }
+
+  const requestRoleChange = (u, role) => {
+    if (role === u.role) return
+    // Routine consumer ↔ provider changes don't need a confirmation.
+    if (u.role !== 'admin' && role !== 'admin') {
+      changeRole(u, role)
+      return
+    }
+    if (u.role === 'admin' && !u.disabled && activeAdminCount <= 1) {
+      setRowError((prev) => ({ ...prev, [u.id]: "Can't remove the last remaining admin." }))
+      return
+    }
+    setConfirmAction({
+      title: role === 'admin' ? 'Grant admin access?' : 'Remove admin access?',
+      message: role === 'admin'
+        ? `Grant ${u.name || u.email} admin access? They'll be able to manage every user's role and account status.`
+        : `Remove ${u.name || u.email}'s admin access? They'll become a ${ROLE_LABEL[role].toLowerCase()}.`,
+      confirmLabel: role === 'admin' ? 'Grant admin' : 'Remove admin',
+      run: () => changeRole(u, role),
     })
   }
 
@@ -247,7 +332,7 @@ export default function AdminUsers() {
                           <select
                             value={u.role ?? 'consumer'}
                             disabled={isSelf || busy}
-                            onChange={(e) => changeRole(u, e.target.value)}
+                            onChange={(e) => requestRoleChange(u, e.target.value)}
                             className={`text-xs font-semibold rounded-full px-2.5 py-1.5 border focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-60 disabled:cursor-not-allowed ${ROLE_BADGE[u.role] ?? ROLE_BADGE.consumer}`}
                           >
                             {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
@@ -270,7 +355,7 @@ export default function AdminUsers() {
                             <span className="text-xs text-gray-400">—</span>
                           ) : (
                             <button
-                              onClick={() => toggleDisabled(u)}
+                              onClick={() => requestDisableToggle(u)}
                               disabled={busy}
                               className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
                                 u.disabled
@@ -294,6 +379,13 @@ export default function AdminUsers() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        action={confirmAction}
+        busy={confirmBusy}
+        onConfirm={runConfirmed}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   )
 }
