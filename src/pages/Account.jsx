@@ -5,7 +5,7 @@ import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { asset } from '../lib/asset'
-import { updateUserProfile, uploadAvatar, removeAvatar, changePassword } from '../lib/users'
+import { updateUserProfile, uploadAvatar, removeAvatar, changePassword, changeEmail } from '../lib/users'
 
 const GRADIENT = 'linear-gradient(135deg, #ff5a5f 0%, #e8464b 55%, #c93338 100%)'
 
@@ -35,6 +35,14 @@ export default function Account() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileError, setProfileError] = useState('')
   const [profileSaved, setProfileSaved] = useState(false)
+
+  // ── Email ──
+  const [newEmail, setNewEmail] = useState('')
+  const [emailPassword, setEmailPassword] = useState('')
+  const [showEmailForm, setShowEmailForm] = useState(false)
+  const [changingEmail, setChangingEmail] = useState(false)
+  const [emailError, setEmailError] = useState('')
+  const [emailSent, setEmailSent] = useState(false)
 
   // ── Password ──
   const [currentPassword, setCurrentPassword] = useState('')
@@ -102,6 +110,32 @@ export default function Account() {
       setProfileError(err.message)
     } finally {
       setSavingProfile(false)
+    }
+  }
+
+  const handleChangeEmail = async (e) => {
+    e.preventDefault()
+    setEmailError('')
+    setEmailSent(false)
+    if (newEmail.trim().toLowerCase() === (userDoc?.email ?? '').toLowerCase()) {
+      setEmailError('That\'s already your current email.')
+      return
+    }
+    setChangingEmail(true)
+    try {
+      await changeEmail(emailPassword, newEmail.trim())
+      setEmailSent(true)
+      setEmailPassword('')
+    } catch (err) {
+      setEmailError(
+        err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password'
+          ? 'Current password is incorrect.'
+          : err.code === 'auth/email-already-in-use'
+          ? 'That email is already in use by another account.'
+          : err.message
+      )
+    } finally {
+      setChangingEmail(false)
     }
   }
 
@@ -221,12 +255,6 @@ export default function Account() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input type="email" disabled value={userDoc?.email ?? ''} className={`${inputClass} text-gray-400 cursor-not-allowed`} />
-            <p className="text-xs text-gray-400 mt-1">Contact support to change the email on your account.</p>
-          </div>
-
           {profileError && (
             <div className="bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3 rounded-xl">
               {profileError}
@@ -246,6 +274,79 @@ export default function Account() {
             {savingProfile ? 'Saving…' : 'Save changes'}
           </button>
         </form>
+
+        {/* Change email */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+          <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Email</h2>
+
+          {!showEmailForm ? (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-gray-700">{userDoc?.email}</p>
+              <button
+                type="button"
+                onClick={() => { setShowEmailForm(true); setNewEmail(''); setEmailError(''); setEmailSent(false) }}
+                className="text-xs font-semibold text-primary-600 border border-primary-200 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
+              >
+                Change email
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleChangeEmail} className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Current: <span className="font-medium text-gray-700">{userDoc?.email}</span>
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New email</label>
+                <input
+                  type="email" required value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Current password</label>
+                <input
+                  type="password" required value={emailPassword}
+                  onChange={(e) => setEmailPassword(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              {emailError && (
+                <div className="bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3 rounded-xl">
+                  {emailError}
+                </div>
+              )}
+              {emailSent && (
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 flex items-start gap-2">
+                  <span className="text-emerald-500 text-base">✅</span>
+                  <p className="text-sm font-semibold text-emerald-700">
+                    Confirmation link sent to {newEmail} — click it to finish the switch. Your login email won't
+                    change until you do.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEmailForm(false)}
+                  className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit" disabled={changingEmail}
+                  className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                >
+                  {changingEmail ? 'Sending…' : 'Send confirmation link'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
 
         {/* Change password */}
         <form onSubmit={handleChangePassword} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">

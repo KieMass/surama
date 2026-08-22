@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
 const AuthContext = createContext(null)
@@ -21,7 +21,22 @@ export function AuthProvider({ children }) {
       if (firebaseUser) {
         await firebaseUser.reload()
         const snap = await getDoc(doc(db, 'users', firebaseUser.uid))
-        const data = snap.exists() ? snap.data() : null
+        let data = snap.exists() ? snap.data() : null
+
+        // Account settings' email change sends a confirmation link to the
+        // new address rather than updating Auth immediately, and there's no
+        // Cloud Function here to react the moment it's clicked — so once
+        // Auth's email has actually moved on (the link was clicked, at some
+        // point since our last visit), reconcile the Firestore copy here.
+        if (data && firebaseUser.email && data.email !== firebaseUser.email) {
+          try {
+            await updateDoc(doc(db, 'users', firebaseUser.uid), { email: firebaseUser.email })
+            data = { ...data, email: firebaseUser.email }
+          } catch {
+            // Best-effort — worst case the Firestore copy stays stale until
+            // the next successful sync attempt.
+          }
+        }
 
         // Soft-disabled by an admin — there's no Cloud Function here to
         // revoke the Auth token, so enforce it client-side by signing out

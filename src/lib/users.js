@@ -10,6 +10,7 @@ import {
   reauthenticateWithCredential,
   updatePassword,
   updateProfile,
+  verifyBeforeUpdateEmail,
 } from 'firebase/auth'
 import { auth, db, storage } from '../firebase'
 
@@ -68,4 +69,16 @@ export async function changePassword(currentPassword, newPassword) {
   const credential = EmailAuthProvider.credential(user.email, currentPassword)
   await reauthenticateWithCredential(user, credential)
   await updatePassword(user, newPassword)
+}
+
+// Re-authenticates, then sends a confirmation link to the NEW address.
+// The Auth email doesn't actually change until that link is clicked — this
+// project has no Cloud Function to react to that, so AuthContext instead
+// reconciles the Firestore users/{uid}.email field against auth.currentUser
+// on the next sign-in/reload after the switch is confirmed.
+export async function changeEmail(currentPassword, newEmail) {
+  const user = auth.currentUser
+  const credential = EmailAuthProvider.credential(user.email, currentPassword)
+  await reauthenticateWithCredential(user, credential)
+  await verifyBeforeUpdateEmail(user, newEmail)
 }
