@@ -15,12 +15,12 @@ service cloud.firestore {
       allow read:  if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
 
-      // Admins can disable/re-enable accounts and change roles from the
-      // admin users page, but can't otherwise edit someone else's profile,
-      // and can't create or delete user docs directly (those stay tied to
-      // Firebase Auth account creation/deletion).
+      // Admins can disable/re-enable accounts, change roles, and toggle a
+      // provider's verified badge from the admin pages, but can't otherwise
+      // edit someone else's profile, and can't create or delete user docs
+      // directly (those stay tied to Firebase Auth account creation/deletion).
       allow update: if isAdmin()
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled', 'role']);
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled', 'role', 'verified']);
     }
 
     // ── Services ───────────────────────────────────────────────────────────
@@ -40,6 +40,12 @@ service cloud.firestore {
                     && request.resource.data.description.size() <= 2000;
       allow update, delete: if request.auth != null
                              && resource.data.providerId == request.auth.uid;
+
+      // Admins can take a listing down (or restore it) and correct the
+      // rating aggregate when they delete a review, but can't touch
+      // anything else about someone else's listing.
+      allow update: if isAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'ratingSum', 'ratingCount']);
     }
 
     // ── Requests ───────────────────────────────────────────────────────────
@@ -59,7 +65,8 @@ service cloud.firestore {
 
       allow read: if request.auth != null
                   && (resource.data.consumerId == request.auth.uid
-                      || resource.data.providerId == request.auth.uid);
+                      || resource.data.providerId == request.auth.uid
+                      || isAdmin());
 
       // Providers can update any field except the four immutable identity fields.
       allow update: if request.auth != null
@@ -117,7 +124,8 @@ service cloud.firestore {
                     && request.resource.data.requestId  == resource.data.requestId
                     && request.resource.data.consumerId == resource.data.consumerId;
 
-      allow delete: if false;
+      // Admins can remove an abusive or fake review; nobody else can delete one.
+      allow delete: if isAdmin();
     }
 
     // ── Conversations & Messages ────────────────────────────────────────────

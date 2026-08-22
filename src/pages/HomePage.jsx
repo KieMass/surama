@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { asset } from '../lib/asset'
 import {
   SprayCan, Wrench, Zap, Hammer, BookOpen, ChefHat,
-  Camera, Sparkles, Leaf, Laptop, Car, PartyPopper,
+  Camera, Sparkles, Leaf, Laptop, Car, PartyPopper, BadgeCheck,
 } from 'lucide-react'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -467,7 +467,12 @@ function ServiceCard({ service }) {
       <div className="p-4 flex flex-col flex-1">
         <h3 className="font-semibold text-gray-900 leading-snug mb-1">{service.title}</h3>
         <p className="text-xs text-gray-400 line-clamp-2 mb-2">{service.description}</p>
-        <p className="text-xs text-gray-400 mb-3">by {service.providerName ?? 'Local Provider'}</p>
+        <p className="text-xs text-gray-400 mb-3 flex items-center gap-1">
+          by {service.providerName ?? 'Local Provider'}
+          {service.providerVerified && (
+            <BadgeCheck size={13} className="text-sky-500" aria-label="Verified provider" />
+          )}
+        </p>
         <div className="mt-auto">
           <p className="font-bold text-gray-900 text-lg mb-3">
             {service.currency} {service.price?.toLocaleString()}
@@ -753,17 +758,21 @@ export default function HomePage() {
 
         const uniqueIds = [...new Set(raw.map((s) => s.providerId).filter(Boolean))]
         const nameMap = {}
+        const verifiedMap = {}
         await Promise.all(
           uniqueIds.map(async (uid) => {
             try {
               const userSnap = await getDoc(doc(db, 'users', uid))
-              if (userSnap.exists()) nameMap[uid] = userSnap.data().name
+              if (userSnap.exists()) {
+                nameMap[uid] = userSnap.data().name
+                verifiedMap[uid] = !!userSnap.data().verified
+              }
             } catch { /* skip */ }
           })
         )
 
         const sorted = raw
-          .map((s) => ({ ...s, providerName: nameMap[s.providerId] }))
+          .map((s) => ({ ...s, providerName: nameMap[s.providerId], providerVerified: verifiedMap[s.providerId] }))
           .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
 
         setServices(sorted)

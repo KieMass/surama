@@ -8,6 +8,7 @@ import { createRequest } from '../lib/requests'
 import { getReviewsForService, averageRating } from '../lib/reviews'
 import { getOrCreateConversation } from '../lib/conversations'
 import StarRating from '../components/StarRating'
+import { BadgeCheck } from 'lucide-react'
 
 function timeAgo(timestamp) {
   if (!timestamp) return ''
@@ -262,7 +263,14 @@ export default function ServiceDetail() {
                   {initials}
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900 text-lg">{provider?.name ?? 'Local Provider'}</p>
+                  <p className="font-semibold text-gray-900 text-lg flex items-center gap-1.5">
+                    {provider?.name ?? 'Local Provider'}
+                    {provider?.verified && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-100 rounded-full px-2 py-0.5">
+                        <BadgeCheck size={12} /> Verified
+                      </span>
+                    )}
+                  </p>
                   <p className="text-sm text-gray-500">
                     Member since {provider?.createdAt
                       ? new Date(provider.createdAt.toMillis()).getFullYear()
