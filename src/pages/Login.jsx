@@ -1,10 +1,16 @@
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import { signInWithEmailAndPassword } from 'firebase/auth'
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { asset } from '../lib/asset'
+
+const roleDashboard = {
+  provider: '/provider/dashboard',
+  consumer: '/consumer/dashboard',
+  admin: '/admin/users',
+}
 
 const PERKS = [
   'Verified local service providers',
@@ -26,8 +32,13 @@ export default function Login() {
     try {
       const cred = await signInWithEmailAndPassword(auth, form.email, form.password)
       const snap = await getDoc(doc(db, 'users', cred.user.uid))
-      const role = snap.data()?.role
-      navigate(role === 'provider' ? '/provider/dashboard' : '/consumer/dashboard')
+      const data = snap.data()
+      if (data?.disabled) {
+        await signOut(auth)
+        setError('This account has been disabled. Contact support for help.')
+        return
+      }
+      navigate(roleDashboard[data?.role] ?? '/consumer/dashboard')
     } catch {
       setError('Invalid email or password.')
     } finally {

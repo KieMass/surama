@@ -20,7 +20,10 @@ function initials(name) {
 export default function Account() {
   const { userDoc, refreshUserDoc } = useAuth()
   const navigate = useNavigate()
-  const dashboardPath = userDoc?.role === 'provider' ? '/provider/dashboard' : '/consumer/dashboard'
+  const dashboardPath =
+    userDoc?.role === 'admin' ? '/admin/users'
+    : userDoc?.role === 'provider' ? '/provider/dashboard'
+    : '/consumer/dashboard'
 
   // ── Photo ──
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
