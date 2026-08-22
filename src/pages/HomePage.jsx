@@ -8,6 +8,7 @@ import { asset } from '../lib/asset'
 import {
   SprayCan, Wrench, Zap, Hammer, BookOpen, ChefHat,
   Camera, Sparkles, Leaf, Laptop, Car, PartyPopper, BadgeCheck,
+  Menu, X,
 } from 'lucide-react'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -103,6 +104,7 @@ function SectionBadge({ children }) {
 function Navbar({ onBrowse }) {
   const { user, userDoc } = useAuth()
   const navigate = useNavigate()
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   const dashboardPath =
     userDoc?.role === 'admin' ? '/admin/users'
@@ -160,8 +162,35 @@ function Navbar({ onBrowse }) {
               </Link>
             </>
           )}
+
+          <button
+            type="button"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
+            className="md:hidden text-gray-600 hover:text-primary-600 transition-colors -mr-1"
+          >
+            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
         </div>
       </div>
+
+      {mobileOpen && (
+        <div className="md:hidden border-t border-gray-100 px-6 py-4 flex flex-col gap-4 text-sm font-medium text-gray-600 bg-white">
+          <Link to="/" onClick={() => setMobileOpen(false)} className="hover:text-primary-600 transition-colors">
+            Home
+          </Link>
+          <button
+            onClick={() => { setMobileOpen(false); onBrowse() }}
+            className="text-left hover:text-primary-600 transition-colors"
+          >
+            Browse Services
+          </button>
+          <a href="#how-it-works" onClick={() => setMobileOpen(false)} className="hover:text-primary-600 transition-colors">
+            How it Works
+          </a>
+        </div>
+      )}
     </nav>
   )
 }
