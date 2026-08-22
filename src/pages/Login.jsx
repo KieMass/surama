@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { asset } from '../lib/asset'
@@ -24,6 +24,29 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
+
+  const handleForgotPassword = async () => {
+    if (!form.email) {
+      setError('Enter your email above first, then click "Forgot password?".')
+      return
+    }
+    setError('')
+    setResetSent(false)
+    setResetLoading(true)
+    try {
+      await sendPasswordResetEmail(auth, form.email)
+      setResetSent(true)
+    } catch {
+      // Firebase reveals whether an email is registered via error codes —
+      // show a generic success-shaped message either way so this can't be
+      // used to enumerate accounts.
+      setResetSent(true)
+    } finally {
+      setResetLoading(false)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -110,7 +133,17 @@ export default function Login() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Password</label>
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={resetLoading}
+                    className="text-xs font-semibold text-primary-600 hover:underline disabled:opacity-50"
+                  >
+                    {resetLoading ? 'Sending…' : 'Forgot password?'}
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'} required value={form.password}
@@ -132,6 +165,11 @@ export default function Login() {
               {error && (
                 <div className="bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3 rounded-xl">
                   {error}
+                </div>
+              )}
+              {resetSent && !error && (
+                <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm px-4 py-3 rounded-xl">
+                  If an account exists for that email, a reset link is on its way — check your inbox.
                 </div>
               )}
 
