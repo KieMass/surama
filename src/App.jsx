@@ -16,6 +16,7 @@ import Inbox from './pages/Inbox'
 import Chat from './pages/Chat'
 import Account from './pages/Account'
 import VerifyEmail from './pages/VerifyEmail'
+import AdminUsers from './pages/admin/AdminUsers'
 import ChatBubble from './components/ChatBubble'
 
 export default function App() {
@@ -97,6 +98,16 @@ export default function App() {
         <Route
           path="/account"
           element={<ProtectedRoute><Account /></ProtectedRoute>}
+        />
+
+        <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute allowedRole="admin">
+              <AdminUsers />
+            </ProtectedRoute>
+          }
         />
 
         <Route path="*" element={<Navigate to="/login" replace />} />

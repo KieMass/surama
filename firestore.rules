@@ -2,12 +2,25 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Shared by any collection that needs to grant admins elevated access.
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     // ── Users ──────────────────────────────────────────────────────────────
     // Any authenticated user can read any profile (marketplace providers are
     // publicly discoverable). Only the account owner can write their own doc.
     match /users/{userId} {
       allow read:  if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
+
+      // Admins can disable/re-enable accounts and change roles from the
+      // admin users page, but can't otherwise edit someone else's profile,
+      // and can't create or delete user docs directly (those stay tied to
+      // Firebase Auth account creation/deletion).
+      allow update: if isAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled', 'role']);
     }
 
     // ── Services ───────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { onAuthStateChanged } from 'firebase/auth'
+import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
@@ -20,9 +20,22 @@ export function AuthProvider({ children }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         await firebaseUser.reload()
-        setUser(auth.currentUser)
         const snap = await getDoc(doc(db, 'users', firebaseUser.uid))
-        setUserDoc(snap.exists() ? snap.data() : null)
+        const data = snap.exists() ? snap.data() : null
+
+        // Soft-disabled by an admin — there's no Cloud Function here to
+        // revoke the Auth token, so enforce it client-side by signing out
+        // as soon as we see the flag (next load / auth state change).
+        if (data?.disabled) {
+          await signOut(auth)
+          setUser(null)
+          setUserDoc(null)
+          setLoading(false)
+          return
+        }
+
+        setUser(auth.currentUser)
+        setUserDoc(data)
       } else {
         setUser(null)
         setUserDoc(null)

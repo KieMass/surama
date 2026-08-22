@@ -104,8 +104,14 @@ function Navbar({ onBrowse }) {
   const { user, userDoc } = useAuth()
   const navigate = useNavigate()
 
-  const dashboardPath = userDoc?.role === 'provider' ? '/provider/dashboard' : '/consumer/dashboard'
-  const dashboardLabel = userDoc?.role === 'provider' ? 'Provider Dashboard' : 'My Dashboard'
+  const dashboardPath =
+    userDoc?.role === 'admin' ? '/admin/users'
+    : userDoc?.role === 'provider' ? '/provider/dashboard'
+    : '/consumer/dashboard'
+  const dashboardLabel =
+    userDoc?.role === 'admin' ? 'Admin Panel'
+    : userDoc?.role === 'provider' ? 'Provider Dashboard'
+    : 'My Dashboard'
 
   const handleSignOut = async () => {
     await signOut(auth)

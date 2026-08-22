@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 const roleDashboard = {
   provider: '/provider/dashboard',
   consumer: '/consumer/dashboard',
+  admin: '/admin/users',
 }
 
 function VerificationBanner({ user }) {
