@@ -10,13 +10,23 @@ export const PAYMENT_STATUS_LABEL = {
   paid: 'Paid in full',
 }
 
-// Selectable at checkout. "test" stays listed even once real plugins exist
-// — it's the only way to exercise the flow without real money.
-export const PAYMENT_PLUGINS = [
+// Every plugin the backend knows about. Selectable at checkout is a
+// filtered subset — see LIVE_PLUGIN_IDS below.
+const ALL_PAYMENT_PLUGINS = [
   { id: 'mmg', label: 'MMG' },
   { id: 'paypal', label: 'PayPal' },
   { id: 'test', label: 'Test payment (no real money)' },
 ]
+
+// Gated here until each plugin has real credentials configured in the
+// deployed Functions environment (functions/.env — see .env.example).
+// Without that, selecting PayPal or MMG would fail with a clean but
+// unhelpful error, since nothing is configured server-side yet. Add
+// 'paypal' and/or 'mmg' back to this set once their credentials are in
+// place and each has been verified against its real sandbox.
+const LIVE_PLUGIN_IDS = new Set(['test'])
+
+export const PAYMENT_PLUGINS = ALL_PAYMENT_PLUGINS.filter((p) => LIVE_PLUGIN_IDS.has(p.id))
 
 // Starts a payment session for one leg of a request ('deposit' or
 // 'balance') through the given plugin. Returns a redirectUrl: an internal

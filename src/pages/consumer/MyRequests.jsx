@@ -223,6 +223,17 @@ export default function MyRequests() {
     }
   }
 
+  // Skip the picker modal when there's only one live plugin (currently
+  // just Test — see PAYMENT_PLUGINS in lib/payments.js) — no point making
+  // someone choose between one thing.
+  const startPayment = (r, type) => {
+    if (PAYMENT_PLUGINS.length === 1) {
+      handlePay(r, type, PAYMENT_PLUGINS[0].id)
+    } else {
+      setPayPicker({ r, type })
+    }
+  }
+
   const openReviewForm = (r) => {
     const existing = reviewMap.get(r.id)
     setReviewRating(existing?.rating ?? 5)
@@ -394,7 +405,7 @@ export default function MyRequests() {
                     {r.status === REQUEST_STATUS.ACCEPTED && r.paymentStatus !== 'deposit_paid' && (
                       <div className="flex flex-col items-end gap-1">
                         <button
-                          onClick={() => setPayPicker({ r, type: 'deposit' })}
+                          onClick={() => startPayment(r, 'deposit')}
                           disabled={payingId === r.id || r.paymentStatus === 'deposit_pending'}
                           className="text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
                         >
@@ -552,7 +563,7 @@ export default function MyRequests() {
                       {r.paymentStatus === 'deposit_paid' && (
                         <div>
                           <button
-                            onClick={() => setPayPicker({ r, type: 'balance' })}
+                            onClick={() => startPayment(r, 'balance')}
                             disabled={payingId === r.id}
                             className="w-full text-sm font-bold text-white py-2.5 rounded-xl transition-colors disabled:opacity-50 shadow-sm bg-primary-600 hover:bg-primary-700"
                           >
@@ -591,7 +602,7 @@ export default function MyRequests() {
                 {r.status === REQUEST_STATUS.COMPLETED && r.paymentStatus === 'deposit_paid' && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <button
-                      onClick={() => setPayPicker({ r, type: 'balance' })}
+                      onClick={() => startPayment(r, 'balance')}
                       disabled={payingId === r.id}
                       className="w-full text-sm font-bold text-white py-2.5 rounded-xl transition-colors disabled:opacity-50 shadow-sm bg-primary-600 hover:bg-primary-700"
                     >
