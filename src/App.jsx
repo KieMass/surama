@@ -18,6 +18,8 @@ const VerifyEmail = lazy(() => import('./pages/VerifyEmail'))
 const Inbox = lazy(() => import('./pages/Inbox'))
 const Chat = lazy(() => import('./pages/Chat'))
 const Account = lazy(() => import('./pages/Account'))
+const TestCheckout = lazy(() => import('./pages/TestCheckout'))
+const PaymentResult = lazy(() => import('./pages/PaymentResult'))
 const ProviderDashboard = lazy(() => import('./pages/provider/ProviderDashboard'))
 const CreateListing = lazy(() => import('./pages/provider/CreateListing'))
 const EditListing = lazy(() => import('./pages/provider/EditListing'))
@@ -117,6 +119,14 @@ export default function App() {
         <Route
           path="/account"
           element={<ProtectedRoute><Account /></ProtectedRoute>}
+        />
+        <Route
+          path="/pay/test/:paymentId"
+          element={<ProtectedRoute><TestCheckout /></ProtectedRoute>}
+        />
+        <Route
+          path="/pay/result"
+          element={<ProtectedRoute><PaymentResult /></ProtectedRoute>}
         />
 
         <Route path="/admin" element={<Navigate to="/admin/users" replace />} />

@@ -132,6 +132,26 @@ function JobDetailPanel({ r, onStatusChange, onRequestCompletion, onPricePropose
             </div>
           </div>
 
+          {r.paymentStatus && r.paymentStatus !== 'unpaid' && (
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Payment</p>
+              <div className="flex flex-wrap gap-3 text-sm">
+                {r.depositAmount != null && (
+                  <span className={r.paymentStatus === 'deposit_pending' ? 'text-amber-600' : 'text-emerald-600 font-semibold'}>
+                    Deposit {r.currency} {r.depositAmount.toLocaleString()}
+                    {r.paymentStatus === 'deposit_pending' ? ' · processing' : ' · paid ✅'}
+                  </span>
+                )}
+                {['balance_pending', 'paid'].includes(r.paymentStatus) && r.balanceAmount != null && (
+                  <span className={r.paymentStatus === 'balance_pending' ? 'text-amber-600' : 'text-emerald-600 font-semibold'}>
+                    Balance {r.currency} {r.balanceAmount.toLocaleString()}
+                    {r.paymentStatus === 'balance_pending' ? ' · processing' : ' · paid ✅'}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Received</p>
             <p className="text-sm text-gray-500">{formatDate(r.createdAt)}</p>

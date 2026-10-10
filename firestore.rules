@@ -8,6 +8,18 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // The payment side of a request (set only by Cloud Functions via the
+    // Admin SDK, which bypasses these rules entirely) must never be
+    // forgeable through an otherwise-legitimate client update to the
+    // request doc — e.g. a consumer cancelling shouldn't be able to also
+    // sneak in paymentStatus: 'paid' on the same write.
+    function paymentFieldsUntouched(before, after) {
+      return !("paymentStatus"  in after.diff(before).affectedKeys())
+          && !("depositAmount"  in after.diff(before).affectedKeys())
+          && !("balanceAmount"  in after.diff(before).affectedKeys())
+          && !("depositPercent" in after.diff(before).affectedKeys());
+    }
+
     // ── Users ──────────────────────────────────────────────────────────────
     // Any authenticated user can read any profile (marketplace providers are
     // publicly discoverable). The account owner can create their own doc at
@@ -94,17 +106,19 @@ service cloud.firestore {
                       || isAdmin());
 
       // Providers can update any field except the four immutable identity
-      // fields. If they touch status, it must be one they're actually
-      // allowed to set (matches the transitions requests.js performs on
-      // their behalf — accept/decline, counter-propose, mark complete).
-      // If they touch price/proposedPrice, it must stay a valid amount,
-      // same as the create-time check.
+      // fields and the payment fields (Cloud-Function-only, see above). If
+      // they touch status, it must be one they're actually allowed to set
+      // (matches the transitions requests.js performs on their behalf —
+      // accept/decline, counter-propose, mark complete). If they touch
+      // price/proposedPrice, it must stay a valid amount, same as the
+      // create-time check.
       allow update: if request.auth != null
                     && resource.data.providerId == request.auth.uid
                     && !("consumerId"    in request.resource.data.diff(resource.data).affectedKeys())
                     && !("providerId"    in request.resource.data.diff(resource.data).affectedKeys())
                     && !("serviceId"     in request.resource.data.diff(resource.data).affectedKeys())
                     && !("consumerEmail" in request.resource.data.diff(resource.data).affectedKeys())
+                    && paymentFieldsUntouched(resource.data, request.resource.data)
                     && (!("status" in request.resource.data.diff(resource.data).affectedKeys())
                         || request.resource.data.status in
                              ['accepted', 'declined', 'price_proposed', 'pending_completion'])
@@ -125,6 +139,7 @@ service cloud.firestore {
                     && request.resource.data.providerId    == resource.data.providerId
                     && request.resource.data.serviceId     == resource.data.serviceId
                     && request.resource.data.consumerEmail == resource.data.consumerEmail
+                    && paymentFieldsUntouched(resource.data, request.resource.data)
                     && (
                          (resource.data.status in ['pending', 'accepted']
                            && request.resource.data.status == 'cancelled')
@@ -135,6 +150,27 @@ service cloud.firestore {
                     );
 
       allow delete: if false;
+    }
+
+    // ── Payments ───────────────────────────────────────────────────────────
+    // One doc per payment attempt (a request's deposit or balance leg).
+    // Written only by Cloud Functions via the Admin SDK — a client never
+    // creates, updates, or deletes one directly, only reads its own.
+    match /payments/{paymentId} {
+      allow read: if request.auth != null
+                  && (resource.data.consumerId == request.auth.uid
+                      || resource.data.providerId == request.auth.uid
+                      || isAdmin());
+      allow write: if false;
+    }
+
+    // ── Settings ───────────────────────────────────────────────────────────
+    // Platform-wide config (e.g. settings/payments: commission/deposit
+    // rates, which payment plugins are live). Cloud Functions read these
+    // via the Admin SDK regardless of this rule; this only governs the
+    // (not yet built) admin settings page.
+    match /settings/{settingId} {
+      allow read, write: if isAdmin();
     }
 
     // ── Reviews ────────────────────────────────────────────────────────────
