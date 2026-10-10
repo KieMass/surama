@@ -21,7 +21,7 @@ import {
 } from '../../lib/requests'
 import { createReview, updateReview, getReviewedRequestIds } from '../../lib/reviews'
 import { getOrCreateConversation, sendMessage } from '../../lib/conversations'
-import { createPaymentSession } from '../../lib/payments'
+import { createPaymentSession, PAYMENT_PLUGINS } from '../../lib/payments'
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000
 
@@ -55,6 +55,7 @@ export default function MyRequests() {
   const [decliningPriceId, setDecliningPriceId] = useState(null)
   const [payingId, setPayingId] = useState(null)
   const [payError, setPayError] = useState({})
+  const [payPicker, setPayPicker] = useState(null) // { r, type } | null
   const [showCounterFormId, setShowCounterFormId] = useState(null)
   const [counterPrice, setCounterPrice] = useState('')
   const [counterNote, setCounterNote] = useState('')
@@ -208,13 +209,12 @@ export default function MyRequests() {
     }
   }
 
-  // Only the Test plugin is wired into this page for now — once a real
-  // plugin exists, this becomes a picker instead of a hardcoded pluginId.
-  const handlePay = async (r, type) => {
+  const handlePay = async (r, type, pluginId) => {
+    setPayPicker(null)
     setPayingId(r.id)
     setPayError((prev) => ({ ...prev, [r.id]: '' }))
     try {
-      const { redirectUrl } = await createPaymentSession(r.id, type, 'test')
+      const { redirectUrl } = await createPaymentSession(r.id, type, pluginId)
       if (redirectUrl.startsWith('/')) navigate(redirectUrl)
       else window.location.assign(redirectUrl)
     } catch (err) {
@@ -394,7 +394,7 @@ export default function MyRequests() {
                     {r.status === REQUEST_STATUS.ACCEPTED && r.paymentStatus !== 'deposit_paid' && (
                       <div className="flex flex-col items-end gap-1">
                         <button
-                          onClick={() => handlePay(r, 'deposit')}
+                          onClick={() => setPayPicker({ r, type: 'deposit' })}
                           disabled={payingId === r.id || r.paymentStatus === 'deposit_pending'}
                           className="text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
                         >
@@ -552,7 +552,7 @@ export default function MyRequests() {
                       {r.paymentStatus === 'deposit_paid' && (
                         <div>
                           <button
-                            onClick={() => handlePay(r, 'balance')}
+                            onClick={() => setPayPicker({ r, type: 'balance' })}
                             disabled={payingId === r.id}
                             className="w-full text-sm font-bold text-white py-2.5 rounded-xl transition-colors disabled:opacity-50 shadow-sm bg-primary-600 hover:bg-primary-700"
                           >
@@ -591,7 +591,7 @@ export default function MyRequests() {
                 {r.status === REQUEST_STATUS.COMPLETED && r.paymentStatus === 'deposit_paid' && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <button
-                      onClick={() => handlePay(r, 'balance')}
+                      onClick={() => setPayPicker({ r, type: 'balance' })}
                       disabled={payingId === r.id}
                       className="w-full text-sm font-bold text-white py-2.5 rounded-xl transition-colors disabled:opacity-50 shadow-sm bg-primary-600 hover:bg-primary-700"
                     >
@@ -707,6 +707,34 @@ export default function MyRequests() {
           })}
         </div>
       </div>
+
+      {payPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Choose a payment method</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              {payPicker.type === 'deposit' ? 'Paying the deposit' : 'Paying the balance'} for "{payPicker.r.serviceTitle}"
+            </p>
+            <div className="space-y-2">
+              {PAYMENT_PLUGINS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => handlePay(payPicker.r, payPicker.type, p.id)}
+                  className="w-full text-left border border-gray-200 hover:border-primary-300 hover:bg-primary-50 px-4 py-3 rounded-xl text-sm font-semibold text-gray-700 transition-colors"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setPayPicker(null)}
+              className="w-full text-center text-sm text-gray-500 hover:text-gray-700 mt-4 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

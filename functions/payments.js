@@ -1,8 +1,24 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const PLUGINS = require('./plugins')
+const { applyPaymentOutcome } = require('./paymentOutcome')
 
-const DEFAULT_SETTINGS = { depositPercent: 25, commissionPercent: 10 }
+const DEFAULT_SETTINGS = {
+  depositPercent: 25,
+  commissionPercent: 10,
+  // Placeholder GYD-per-1-USD rate for plugins that can't charge in GYD
+  // directly (PayPal doesn't support it). This is NOT a live rate — it's a
+  // static fallback until the (not yet built) admin settings page lets
+  // this be kept current, or a real FX-rate source is wired in.
+  gydUsdRate: 209,
+}
+
+// Cloud Functions 2nd gen HTTP endpoints get this URL shape by default.
+// Plugins that redirect the browser back to us (PayPal, MMG) build their
+// return/cancel/webhook URLs from this rather than trusting anything the
+// client passes in — letting the client dictate a redirect target would be
+// an open redirect.
+const FUNCTIONS_BASE_URL = `https://${process.env.FUNCTION_REGION || 'us-central1'}-${process.env.GCLOUD_PROJECT}.cloudfunctions.net`
 
 function roundMoney(n) {
   return Math.round(n * 100) / 100
@@ -16,7 +32,8 @@ async function getPaymentSettings(db) {
 // Creates a payment session for one leg (deposit or balance) of a request.
 // Reads + validates + stakes out the request's payment state inside a
 // transaction so two concurrent calls can't both start a payment for the
-// same leg. The actual session (and its redirect) comes from the plugin;
+// same leg. The actual session (and its redirect, and any currency
+// conversion a plugin needs — see paypal.js) comes from the plugin;
 // everything about splitting the commission out is plugin-agnostic.
 exports.createPaymentSession = onCall(async (callReq) => {
   const uid = callReq.auth?.uid
@@ -89,7 +106,18 @@ exports.createPaymentSession = onCall(async (callReq) => {
   const commissionAmount = roundMoney((amount * settings.commissionPercent) / 100)
   const providerAmount = roundMoney(amount - commissionAmount)
 
-  const session = await plugin.createSession({ paymentId: paymentRef.id, amount, currency })
+  const session = await plugin.createSession({
+    paymentId: paymentRef.id,
+    amount,
+    currency,
+    settings,
+    // Convention: a plugin that redirects the browser back to us defines
+    // HTTP functions named <pluginId>Return / <pluginId>Cancel (see
+    // http.js) — paypalReturn/paypalCancel for PayPal, etc. Plugins that
+    // don't need a browser round-trip (Test) just ignore these.
+    returnUrl: `${FUNCTIONS_BASE_URL}/${pluginId}Return?paymentId=${paymentRef.id}`,
+    cancelUrl: `${FUNCTIONS_BASE_URL}/${pluginId}Cancel?paymentId=${paymentRef.id}`,
+  })
 
   await paymentRef.set({
     requestId,
@@ -100,6 +128,13 @@ exports.createPaymentSession = onCall(async (callReq) => {
     mode: session.mode ?? 'sandbox',
     amount,
     currency,
+    // Set only by plugins that must convert to a currency they actually
+    // support (PayPal doesn't support GYD) — the consumer's real charge,
+    // distinct from the GYD-denominated amount/commission bookkeeping
+    // above which stays consistent across every plugin.
+    chargedAmount: session.chargedAmount ?? null,
+    chargedCurrency: session.chargedCurrency ?? null,
+    fxRate: session.fxRate ?? null,
     commissionPercent: settings.commissionPercent,
     commissionAmount,
     providerAmount,
@@ -116,7 +151,8 @@ exports.createPaymentSession = onCall(async (callReq) => {
 // Resolves a *test-plugin* payment directly from the client, standing in
 // for the webhook a real plugin would receive instead. Hard-restricted to
 // pluginId "test" — a real plugin's payment can only move to "succeeded"
-// via its own verifyWebhook() path (not built yet), never this callable.
+// via its own return/webhook path (see http.js for PayPal's), never this
+// callable.
 exports.confirmTestPayment = onCall(async (callReq) => {
   const uid = callReq.auth?.uid
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.')
@@ -128,40 +164,19 @@ exports.confirmTestPayment = onCall(async (callReq) => {
 
   const db = getFirestore()
   const paymentRef = db.doc(`payments/${paymentId}`)
+  const paymentSnap = await paymentRef.get()
+  if (!paymentSnap.exists) throw new HttpsError('not-found', 'Payment not found.')
+  const payment = paymentSnap.data()
 
-  await db.runTransaction(async (tx) => {
-    const paymentSnap = await tx.get(paymentRef)
-    if (!paymentSnap.exists) throw new HttpsError('not-found', 'Payment not found.')
-    const payment = paymentSnap.data()
+  if (payment.pluginId !== 'test') {
+    throw new HttpsError('permission-denied', 'Only test payments can be confirmed this way.')
+  }
+  if (payment.consumerId !== uid) {
+    throw new HttpsError('permission-denied', 'Not your payment.')
+  }
 
-    if (payment.pluginId !== 'test') {
-      throw new HttpsError('permission-denied', 'Only test payments can be confirmed this way.')
-    }
-    if (payment.consumerId !== uid) {
-      throw new HttpsError('permission-denied', 'Not your payment.')
-    }
-    if (payment.status !== 'pending') {
-      throw new HttpsError('failed-precondition', 'This payment has already been resolved.')
-    }
-
-    tx.update(paymentRef, {
-      status: outcome,
-      updatedAt: FieldValue.serverTimestamp(),
-      ...(outcome === 'succeeded' ? { confirmedAt: FieldValue.serverTimestamp() } : {}),
-    })
-
-    // Payment status is tracked independently of the request's job-status
-    // (pending/accepted/completed/...) — paying never changes the job
-    // status itself, it only unlocks/records the money side.
-    const reqRef = db.doc(`requests/${payment.requestId}`)
-    if (outcome === 'succeeded') {
-      tx.update(reqRef, { paymentStatus: payment.type === 'deposit' ? 'deposit_paid' : 'paid' })
-    } else {
-      // Failed/cancelled — fall back to the state before this attempt so the
-      // consumer can retry.
-      tx.update(reqRef, { paymentStatus: payment.type === 'deposit' ? 'unpaid' : 'deposit_paid' })
-    }
-  })
+  const applied = await applyPaymentOutcome(paymentRef, outcome)
+  if (!applied) throw new HttpsError('failed-precondition', 'This payment has already been resolved.')
 
   return { status: outcome }
 })

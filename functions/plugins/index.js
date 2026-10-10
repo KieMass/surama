@@ -3,4 +3,6 @@
 // nothing else in payments.js needs to change to pick them up.
 module.exports = {
   test: require('./test'),
+  paypal: require('./paypal'),
+  mmg: require('./mmg'),
 }

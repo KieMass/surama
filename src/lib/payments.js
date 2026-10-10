@@ -10,6 +10,14 @@ export const PAYMENT_STATUS_LABEL = {
   paid: 'Paid in full',
 }
 
+// Selectable at checkout. "test" stays listed even once real plugins exist
+// — it's the only way to exercise the flow without real money.
+export const PAYMENT_PLUGINS = [
+  { id: 'mmg', label: 'MMG' },
+  { id: 'paypal', label: 'PayPal' },
+  { id: 'test', label: 'Test payment (no real money)' },
+]
+
 // Starts a payment session for one leg of a request ('deposit' or
 // 'balance') through the given plugin. Returns a redirectUrl: an internal
 // app path (e.g. the Test plugin's /pay/test/:id) for an in-app checkout,
