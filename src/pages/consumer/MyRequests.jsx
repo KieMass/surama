@@ -21,6 +21,7 @@ import {
 } from '../../lib/requests'
 import { createReview, updateReview, getReviewedRequestIds } from '../../lib/reviews'
 import { getOrCreateConversation, sendMessage } from '../../lib/conversations'
+import { createPaymentSession } from '../../lib/payments'
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000
 
@@ -52,6 +53,8 @@ export default function MyRequests() {
   const [disputingId, setDisputingId] = useState(null)
   const [acceptingPriceId, setAcceptingPriceId] = useState(null)
   const [decliningPriceId, setDecliningPriceId] = useState(null)
+  const [payingId, setPayingId] = useState(null)
+  const [payError, setPayError] = useState({})
   const [showCounterFormId, setShowCounterFormId] = useState(null)
   const [counterPrice, setCounterPrice] = useState('')
   const [counterNote, setCounterNote] = useState('')
@@ -202,6 +205,21 @@ export default function MyRequests() {
       setCounterNote('')
     } finally {
       setSendingCounter(false)
+    }
+  }
+
+  // Only the Test plugin is wired into this page for now — once a real
+  // plugin exists, this becomes a picker instead of a hardcoded pluginId.
+  const handlePay = async (r, type) => {
+    setPayingId(r.id)
+    setPayError((prev) => ({ ...prev, [r.id]: '' }))
+    try {
+      const { redirectUrl } = await createPaymentSession(r.id, type, 'test')
+      if (redirectUrl.startsWith('/')) navigate(redirectUrl)
+      else window.location.assign(redirectUrl)
+    } catch (err) {
+      setPayError((prev) => ({ ...prev, [r.id]: err.message }))
+      setPayingId(null)
     }
   }
 
@@ -367,9 +385,24 @@ export default function MyRequests() {
                       </button>
                     )}
 
-                    {r.status === REQUEST_STATUS.ACCEPTED && (
+                    {r.status === REQUEST_STATUS.ACCEPTED && r.paymentStatus === 'deposit_paid' && (
                       <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 text-center">
-                        Provider accepted 🎉<br />They'll be in touch to arrange payment.
+                        Deposit paid ✅<br />The provider is on the job.
+                      </div>
+                    )}
+
+                    {r.status === REQUEST_STATUS.ACCEPTED && r.paymentStatus !== 'deposit_paid' && (
+                      <div className="flex flex-col items-end gap-1">
+                        <button
+                          onClick={() => handlePay(r, 'deposit')}
+                          disabled={payingId === r.id || r.paymentStatus === 'deposit_pending'}
+                          className="text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {payingId === r.id ? 'Starting…'
+                            : r.paymentStatus === 'deposit_pending' ? 'Deposit processing…'
+                            : `💳 Pay deposit${r.depositAmount != null ? ` (${r.currency} ${r.depositAmount.toLocaleString()})` : ''}`}
+                        </button>
+                        {payError[r.id] && <p className="text-[11px] text-red-500 max-w-[180px] text-right">{payError[r.id]}</p>}
                       </div>
                     )}
 
@@ -516,6 +549,24 @@ export default function MyRequests() {
                           Auto-confirms in {timeUntilAutoConfirm(r.completionRequestedAt)} if you take no action.
                         </p>
                       </div>
+                      {r.paymentStatus === 'deposit_paid' && (
+                        <div>
+                          <button
+                            onClick={() => handlePay(r, 'balance')}
+                            disabled={payingId === r.id}
+                            className="w-full text-sm font-bold text-white py-2.5 rounded-xl transition-colors disabled:opacity-50 shadow-sm bg-primary-600 hover:bg-primary-700"
+                          >
+                            {payingId === r.id ? 'Starting…' : `💳 Pay balance (${r.currency} ${r.balanceAmount?.toLocaleString()})`}
+                          </button>
+                          {payError[r.id] && <p className="text-[11px] text-red-500 mt-1">{payError[r.id]}</p>}
+                        </div>
+                      )}
+                      {r.paymentStatus === 'balance_pending' && (
+                        <p className="text-xs text-purple-500 text-center">Balance payment processing…</p>
+                      )}
+                      {r.paymentStatus === 'paid' && (
+                        <p className="text-xs font-semibold text-emerald-700 text-center">Paid in full ✅</p>
+                      )}
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleDispute(r)}
@@ -533,6 +584,20 @@ export default function MyRequests() {
                         </button>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Completed but balance still owed (e.g. auto-confirmed before paying) */}
+                {r.status === REQUEST_STATUS.COMPLETED && r.paymentStatus === 'deposit_paid' && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <button
+                      onClick={() => handlePay(r, 'balance')}
+                      disabled={payingId === r.id}
+                      className="w-full text-sm font-bold text-white py-2.5 rounded-xl transition-colors disabled:opacity-50 shadow-sm bg-primary-600 hover:bg-primary-700"
+                    >
+                      {payingId === r.id ? 'Starting…' : `💳 Pay balance (${r.currency} ${r.balanceAmount?.toLocaleString()})`}
+                    </button>
+                    {payError[r.id] && <p className="text-[11px] text-red-500 mt-1 text-center">{payError[r.id]}</p>}
                   </div>
                 )}
 
