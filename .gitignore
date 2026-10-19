@@ -16,6 +16,8 @@ dist-ssr
 .env
 .env.*
 !.env.example
+# Placeholder config for the offline emulator project — no secrets
+!.env.emulator
 
 # Editor directories and files
 .vscode/*

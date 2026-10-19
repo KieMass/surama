@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:emulator": "vite --mode emulator",
+    "emulators": "firebase emulators:start --project demo-surama",
+    "seed": "node functions/scripts/seed-emulator.js",
+    "test:payments": "firebase emulators:exec --project demo-surama --only auth,firestore,functions \"npm run seed && node scripts/e2e-payments.mjs\""
   },
   "dependencies": {
     "firebase": "^12.15.0",
