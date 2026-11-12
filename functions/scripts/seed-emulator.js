@@ -63,6 +63,9 @@ const REQUESTS = {
   'test-req-pending': { status: 'pending' },
   // Ready for the consumer to pay the deposit.
   'test-req-deposit': { status: 'accepted', paymentStatus: 'unpaid' },
+  // Also deposit-ready — the e2e suite pays this one after changing the
+  // admin payment settings, to check the new rates take effect.
+  'test-req-settings': { status: 'accepted', paymentStatus: 'unpaid' },
   // Deposit already paid and job marked complete — ready for the balance.
   'test-req-balance': {
     status: 'pending_completion',
@@ -70,6 +73,18 @@ const REQUESTS = {
     depositAmount: 5000,
     balanceAmount: 15000,
     depositPercent: 25,
+    commissionPercent: 10,
+    completionRequestedAt: FieldValue.serverTimestamp(),
+  },
+  // Same stage — the e2e suite pays its balance after raising the
+  // commission, to check the job keeps the 10% it was locked at.
+  'test-req-locked': {
+    status: 'pending_completion',
+    paymentStatus: 'deposit_paid',
+    depositAmount: 5000,
+    balanceAmount: 15000,
+    depositPercent: 25,
+    commissionPercent: 10,
     completionRequestedAt: FieldValue.serverTimestamp(),
   },
 }
@@ -99,6 +114,8 @@ async function main() {
   // Clear payment attempts left over from earlier runs.
   const stale = await db.collection('payments').where('consumerId', '==', consumer.uid).get()
   await Promise.all(stale.docs.map((d) => d.ref.delete()))
+  // Back to the built-in payment defaults (25% deposit, 10% commission).
+  await db.doc('settings/payments').delete()
 
   for (const [reqId, fields] of Object.entries(REQUESTS)) {
     await db.doc(`requests/${reqId}`).set({

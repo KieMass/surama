@@ -10,6 +10,7 @@ const TABS = [
   { path: '/admin/users', label: 'Users' },
   { path: '/admin/listings', label: 'Listings' },
   { path: '/admin/reviews', label: 'Reviews' },
+  { path: '/admin/payments', label: 'Payments' },
 ]
 
 export default function AdminLayout({ title, subtitle, children }) {

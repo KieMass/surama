@@ -30,6 +30,7 @@ const MyRequests = lazy(() => import('./pages/consumer/MyRequests'))
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'))
 const AdminListings = lazy(() => import('./pages/admin/AdminListings'))
 const AdminReviews = lazy(() => import('./pages/admin/AdminReviews'))
+const AdminPayments = lazy(() => import('./pages/admin/AdminPayments'))
 
 function RouteFallback() {
   return (
@@ -151,6 +152,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRole="admin">
               <AdminReviews />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/payments"
+          element={
+            <ProtectedRoute allowedRole="admin">
+              <AdminPayments />
             </ProtectedRoute>
           }
         />

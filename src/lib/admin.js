@@ -12,8 +12,10 @@ import {
   startAfter,
   increment,
   runTransaction,
+  setDoc,
+  serverTimestamp,
 } from 'firebase/firestore'
-import { db } from '../firebase'
+import { auth, db } from '../firebase'
 
 export const ROLES = ['consumer', 'provider', 'admin']
 
@@ -164,5 +166,41 @@ export async function deleteReview(review) {
         })
       }
     }
+  })
+}
+
+// ── Payment settings ─────────────────────────────────────────────────────
+
+// Mirrors DEFAULT_SETTINGS in functions/payments.js — what the backend
+// uses for any field settings/payments doesn't have yet. Keep the two in
+// step so the admin page shows what payments are actually using.
+export const DEFAULT_PAYMENT_SETTINGS = {
+  depositPercent: 25,
+  commissionPercent: 10,
+  gydUsdRate: 209,
+}
+
+// Returns the effective settings plus when they were last saved (null if
+// nobody has yet, i.e. the backend is still on its defaults).
+export async function fetchPaymentSettings() {
+  const snap = await getDoc(doc(db, 'settings', 'payments'))
+  const data = snap.exists() ? snap.data() : {}
+  return {
+    depositPercent: data.depositPercent ?? DEFAULT_PAYMENT_SETTINGS.depositPercent,
+    commissionPercent: data.commissionPercent ?? DEFAULT_PAYMENT_SETTINGS.commissionPercent,
+    gydUsdRate: data.gydUsdRate ?? DEFAULT_PAYMENT_SETTINGS.gydUsdRate,
+    updatedAt: data.updatedAt ?? null,
+  }
+}
+
+// Writes the whole document (not a merge) — firestore.rules requires every
+// field on each write so the doc can never end up half-filled.
+export async function savePaymentSettings({ depositPercent, commissionPercent, gydUsdRate }) {
+  await setDoc(doc(db, 'settings', 'payments'), {
+    depositPercent,
+    commissionPercent,
+    gydUsdRate,
+    updatedAt: serverTimestamp(),
+    updatedBy: auth.currentUser.uid,
   })
 }

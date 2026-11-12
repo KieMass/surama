@@ -17,7 +17,15 @@ service cloud.firestore {
       return !("paymentStatus"  in after.diff(before).affectedKeys())
           && !("depositAmount"  in after.diff(before).affectedKeys())
           && !("balanceAmount"  in after.diff(before).affectedKeys())
-          && !("depositPercent" in after.diff(before).affectedKeys());
+          && !("depositPercent" in after.diff(before).affectedKeys())
+          && !("commissionPercent" in after.diff(before).affectedKeys());
+    }
+
+    // Same fields, checked at create time: otherwise a consumer could
+    // create a request that already says paymentStatus: 'paid', or lock in
+    // a 0% commission / 0 deposit before the first payment ever starts.
+    function noPaymentFields(data) {
+      return !data.keys().hasAny(['paymentStatus', 'depositAmount', 'balanceAmount', 'depositPercent', 'commissionPercent']);
     }
 
     // ── Users ──────────────────────────────────────────────────────────────
@@ -94,6 +102,7 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && request.resource.data.consumerId == request.auth.uid
                     && request.resource.data.providerId != request.auth.uid
+                    && noPaymentFields(request.resource.data)
                     && (request.resource.data.price == null
                         || (request.resource.data.price is number
                             && request.resource.data.price >= 0))
@@ -166,11 +175,26 @@ service cloud.firestore {
 
     // ── Settings ───────────────────────────────────────────────────────────
     // Platform-wide config (e.g. settings/payments: commission/deposit
-    // rates, which payment plugins are live). Cloud Functions read these
-    // via the Admin SDK regardless of this rule; this only governs the
-    // (not yet built) admin settings page.
+    // rates and the GYD/USD rate). Cloud Functions read these via the Admin
+    // SDK regardless of this rule; this governs the admin settings page.
+    // settings/payments is shape- and range-checked because a bad value
+    // there (a 0 FX rate, a 100% deposit) would break every new payment.
+    // It can't be deleted — the page always writes the full document.
+    function validPaymentSettings(d) {
+      return d.keys().hasOnly(['depositPercent', 'commissionPercent', 'gydUsdRate', 'updatedAt', 'updatedBy'])
+        && d.keys().hasAll(['depositPercent', 'commissionPercent', 'gydUsdRate', 'updatedAt', 'updatedBy'])
+        && d.depositPercent is number && d.depositPercent >= 1 && d.depositPercent <= 99
+        && d.commissionPercent is number && d.commissionPercent >= 0 && d.commissionPercent <= 50
+        && d.gydUsdRate is number && d.gydUsdRate > 0
+        && d.updatedBy == request.auth.uid
+        && d.updatedAt == request.time;
+    }
+
     match /settings/{settingId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow create, update: if isAdmin()
+                            && (settingId != 'payments' || validPaymentSettings(request.resource.data));
+      allow delete: if isAdmin() && settingId != 'payments';
     }
 
     // ── Reviews ────────────────────────────────────────────────────────────

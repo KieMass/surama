@@ -6,11 +6,21 @@ const { applyPaymentOutcome } = require('./paymentOutcome')
 const DEFAULT_SETTINGS = {
   depositPercent: 25,
   commissionPercent: 10,
-  // Placeholder GYD-per-1-USD rate for plugins that can't charge in GYD
-  // directly (PayPal doesn't support it). This is NOT a live rate — it's a
-  // static fallback until the (not yet built) admin settings page lets
-  // this be kept current, or a real FX-rate source is wired in.
+  // GYD-per-1-USD rate for plugins that can't charge in GYD directly
+  // (PayPal doesn't support it). Admins keep this current from the admin
+  // Payments page (settings/payments); this value is only the fallback
+  // until someone saves one there.
   gydUsdRate: 209,
+}
+
+// Same ranges firestore.rules enforces on the admin page's writes. Checked
+// again here because a console or Admin SDK edit bypasses the rules, and a
+// bad value (a 0 FX rate, a 100% deposit) would break every new payment —
+// an out-of-range or non-numeric field falls back to its default instead.
+const SETTING_RANGES = {
+  depositPercent: (v) => v >= 1 && v <= 99,
+  commissionPercent: (v) => v >= 0 && v <= 50,
+  gydUsdRate: (v) => v > 0,
 }
 
 // Cloud Functions 2nd gen HTTP endpoints get this URL shape by default.
@@ -26,7 +36,14 @@ function roundMoney(n) {
 
 async function getPaymentSettings(db) {
   const snap = await db.doc('settings/payments').get()
-  return { ...DEFAULT_SETTINGS, ...(snap.exists ? snap.data() : {}) }
+  const stored = snap.exists ? snap.data() : {}
+  const settings = { ...DEFAULT_SETTINGS }
+  for (const [key, inRange] of Object.entries(SETTING_RANGES)) {
+    const v = stored[key]
+    if (typeof v === 'number' && Number.isFinite(v) && inRange(v)) settings[key] = v
+    else if (v !== undefined) console.warn(`settings/payments.${key} is invalid (${v}); using default ${DEFAULT_SETTINGS[key]}`)
+  }
+  return settings
 }
 
 // Creates a payment session for one leg (deposit or balance) of a request.
@@ -51,7 +68,7 @@ exports.createPaymentSession = onCall(async (callReq) => {
   const reqRef = db.doc(`requests/${requestId}`)
   const paymentRef = db.collection('payments').doc()
 
-  const { amount, currency, providerId } = await db.runTransaction(async (tx) => {
+  const { amount, currency, providerId, commissionPercent } = await db.runTransaction(async (tx) => {
     const reqSnap = await tx.get(reqRef)
     if (!reqSnap.exists) throw new HttpsError('not-found', 'Request not found.')
     const reqData = reqSnap.data()
@@ -74,6 +91,15 @@ exports.createPaymentSession = onCall(async (callReq) => {
       updates.depositAmount = depositAmount
       updates.balanceAmount = balanceAmount
       updates.depositPercent = settings.depositPercent
+    }
+    // Commission is locked the same way, so both legs of a job are charged
+    // the same rate. Checked separately from the split so a request already
+    // mid-booking when this lock was introduced (split stored, no
+    // commissionPercent) still gets one on its next leg.
+    let { commissionPercent } = reqData
+    if (commissionPercent == null) {
+      commissionPercent = settings.commissionPercent
+      updates.commissionPercent = commissionPercent
     }
 
     if (type === 'deposit') {
@@ -100,10 +126,11 @@ exports.createPaymentSession = onCall(async (callReq) => {
       amount: type === 'deposit' ? depositAmount : balanceAmount,
       currency: reqData.currency || 'GYD',
       providerId: reqData.providerId,
+      commissionPercent,
     }
   })
 
-  const commissionAmount = roundMoney((amount * settings.commissionPercent) / 100)
+  const commissionAmount = roundMoney((amount * commissionPercent) / 100)
   const providerAmount = roundMoney(amount - commissionAmount)
 
   const session = await plugin.createSession({
@@ -135,7 +162,7 @@ exports.createPaymentSession = onCall(async (callReq) => {
     chargedAmount: session.chargedAmount ?? null,
     chargedCurrency: session.chargedCurrency ?? null,
     fxRate: session.fxRate ?? null,
-    commissionPercent: settings.commissionPercent,
+    commissionPercent,
     commissionAmount,
     providerAmount,
     status: 'pending',
