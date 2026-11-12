@@ -6,7 +6,7 @@
   <script>
     // Redirect unknown paths back to index.html with path encoded as query string
     // https://github.com/rafgraph/spa-github-pages
-    var pathSegmentsToKeep = 1; // 1 for project page (github.io/surama/), 0 for custom domain
+    var pathSegmentsToKeep = 0; // 0 for a custom domain (surama.net), 1 for a project page (github.io/surama/)
     var l = window.location;
     l.replace(
       l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
