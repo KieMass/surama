@@ -21,6 +21,13 @@ const PAYPAL_API_BASE = process.env.PAYPAL_API_BASE || 'https://api-m.sandbox.pa
 
 exports.id = 'paypal'
 
+// See plugins/index.js — whether this plugin can take payments, and
+// whether it's moving real money.
+exports.status = () => ({
+  configured: !!(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET),
+  mode: PAYPAL_API_BASE.includes('sandbox') ? 'sandbox' : 'live',
+})
+
 async function getAccessToken() {
   const basicAuth = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString('base64')
   const res = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {

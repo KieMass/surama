@@ -79,6 +79,14 @@ function decryptPayload(ciphertext, privateKeyPem) {
   return JSON.parse(plaintext.toString('latin1'))
 }
 
+// See plugins/index.js — whether this plugin can take payments, and
+// whether it's moving real money.
+exports.status = () => {
+  const mode = process.env.MMG_MODE === 'live' ? 'live' : 'sandbox'
+  const cfg = config(mode)
+  return { configured: !!(cfg.checkoutUrl && cfg.publicKey), mode }
+}
+
 exports.createSession = async ({ paymentId, amount }) => {
   const mode = process.env.MMG_MODE === 'live' ? 'live' : 'sandbox'
   const cfg = config(mode)

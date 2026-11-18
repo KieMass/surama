@@ -83,6 +83,12 @@ export async function setUserVerified(uid, verified) {
   await updateDoc(doc(db, 'users', uid), { verified })
 }
 
+// Payment testers are the only accounts offered sandbox (no-real-money)
+// payment methods — see functions/plugins/index.js.
+export async function setUserPaymentTester(uid, paymentTester) {
+  await updateDoc(doc(db, 'users', uid), { paymentTester })
+}
+
 // Gathers everything the admin detail drawer shows about one user: their
 // listings (if they're a provider), their booking history on both sides of
 // the marketplace, and the reviews they've written.

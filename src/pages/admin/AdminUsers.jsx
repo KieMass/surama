@@ -12,6 +12,7 @@ import {
   setUserRole,
   setUserVerified,
   removeUserPhoto,
+  setUserPaymentTester,
   ROLES,
 } from '../../lib/admin'
 import Avatar from '../../components/Avatar'
@@ -44,7 +45,7 @@ function StatusBreakdown({ requests }) {
 }
 
 // ─── Slide-over with a user's listings, bookings, and reviews written ──────
-function UserDetailDrawer({ user, data, loading, onClose, onRemovePhoto, busy, error }) {
+function UserDetailDrawer({ user, data, loading, onClose, onRemovePhoto, onTogglePaymentTester, busy, error }) {
   if (!user) return null
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -93,6 +94,24 @@ function UserDetailDrawer({ user, data, loading, onClose, onRemovePhoto, busy, e
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Payment tester — sees sandbox (no-real-money) payment methods */}
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Payment tester</p>
+              <p className="text-xs text-gray-500">Can use test and sandbox payment methods. Leave off for real customers.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!!user.paymentTester}
+              onClick={() => onTogglePaymentTester(user)}
+              disabled={busy}
+              className={`relative w-11 h-6 rounded-full flex-shrink-0 transition-colors disabled:opacity-50 ${user.paymentTester ? 'bg-primary-600' : 'bg-gray-300'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${user.paymentTester ? 'translate-x-5' : ''}`} />
+            </button>
           </div>
 
           <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -284,6 +303,14 @@ export default function AdminUsers() {
     withRow(u.id, async () => {
       await setUserVerified(u.id, !u.verified)
       setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, verified: !u.verified } : x)))
+    })
+
+  const togglePaymentTester = (u) =>
+    withRow(u.id, async () => {
+      const paymentTester = !u.paymentTester
+      await setUserPaymentTester(u.id, paymentTester)
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, paymentTester } : x)))
+      setDetailUser((prev) => (prev?.id === u.id ? { ...prev, paymentTester } : prev))
     })
 
   const runConfirmed = async () => {
@@ -583,6 +610,7 @@ export default function AdminUsers() {
         loading={detailLoading}
         onClose={() => { setDetailUser(null); setDetailData(null) }}
         onRemovePhoto={requestRemovePhoto}
+        onTogglePaymentTester={togglePaymentTester}
         busy={busyId === detailUser?.id}
         error={detailUser ? rowError[detailUser.id] : ''}
       />

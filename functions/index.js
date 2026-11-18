@@ -7,6 +7,7 @@ const http = require('./http')
 
 exports.createPaymentSession = payments.createPaymentSession
 exports.confirmTestPayment = payments.confirmTestPayment
+exports.listPaymentMethods = payments.listPaymentMethods
 
 exports.paypalReturn = http.paypalReturn
 exports.paypalCancel = http.paypalCancel

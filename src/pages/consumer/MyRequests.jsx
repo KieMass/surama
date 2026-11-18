@@ -21,7 +21,7 @@ import {
 } from '../../lib/requests'
 import { createReview, updateReview, getReviewedRequestIds } from '../../lib/reviews'
 import { getOrCreateConversation, sendMessage } from '../../lib/conversations'
-import { createPaymentSession, PAYMENT_PLUGINS } from '../../lib/payments'
+import { createPaymentSession, usePaymentMethods } from '../../lib/payments'
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000
 
@@ -43,8 +43,14 @@ function timeUntilAutoConfirm(completionRequestedAt) {
 }
 
 export default function MyRequests() {
-  const { userDoc } = useAuth()
+  const { user, userDoc } = useAuth()
   const navigate = useNavigate()
+  const { methods: payMethods, loading: payMethodsLoading } = usePaymentMethods(user?.uid)
+  // No online payment method open to this user yet (e.g. only sandbox ones
+  // exist and they aren't a payment tester) — bookings still work; payment
+  // is arranged with the provider directly.
+  const canPayOnline = payMethods.length > 0
+  const payOffline = !payMethodsLoading && !canPayOnline
   const { inboxCount } = useNotifications()
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
@@ -223,12 +229,11 @@ export default function MyRequests() {
     }
   }
 
-  // Skip the picker modal when there's only one live plugin (currently
-  // just Test — see PAYMENT_PLUGINS in lib/payments.js) — no point making
-  // someone choose between one thing.
+  // Skip the picker modal when there's only one available method — no
+  // point making someone choose between one thing.
   const startPayment = (r, type) => {
-    if (PAYMENT_PLUGINS.length === 1) {
-      handlePay(r, type, PAYMENT_PLUGINS[0].id)
+    if (payMethods.length === 1) {
+      handlePay(r, type, payMethods[0].id)
     } else {
       setPayPicker({ r, type })
     }
@@ -402,7 +407,13 @@ export default function MyRequests() {
                       </div>
                     )}
 
-                    {r.status === REQUEST_STATUS.ACCEPTED && r.paymentStatus !== 'deposit_paid' && (
+                    {r.status === REQUEST_STATUS.ACCEPTED && r.paymentStatus !== 'deposit_paid' && payOffline && (
+                      <p className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 max-w-[200px] text-right">
+                        Online payment isn’t available yet — arrange the deposit with the provider.
+                      </p>
+                    )}
+
+                    {r.status === REQUEST_STATUS.ACCEPTED && r.paymentStatus !== 'deposit_paid' && canPayOnline && (
                       <div className="flex flex-col items-end gap-1">
                         <button
                           onClick={() => startPayment(r, 'deposit')}
@@ -560,7 +571,7 @@ export default function MyRequests() {
                           Auto-confirms in {timeUntilAutoConfirm(r.completionRequestedAt)} if you take no action.
                         </p>
                       </div>
-                      {r.paymentStatus === 'deposit_paid' && (
+                      {r.paymentStatus === 'deposit_paid' && canPayOnline && (
                         <div>
                           <button
                             onClick={() => startPayment(r, 'balance')}
@@ -599,7 +610,7 @@ export default function MyRequests() {
                 )}
 
                 {/* Completed but balance still owed (e.g. auto-confirmed before paying) */}
-                {r.status === REQUEST_STATUS.COMPLETED && r.paymentStatus === 'deposit_paid' && (
+                {r.status === REQUEST_STATUS.COMPLETED && r.paymentStatus === 'deposit_paid' && canPayOnline && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <button
                       onClick={() => startPayment(r, 'balance')}
@@ -727,7 +738,7 @@ export default function MyRequests() {
               {payPicker.type === 'deposit' ? 'Paying the deposit' : 'Paying the balance'} for "{payPicker.r.serviceTitle}"
             </p>
             <div className="space-y-2">
-              {PAYMENT_PLUGINS.map((p) => (
+              {payMethods.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => handlePay(payPicker.r, payPicker.type, p.id)}

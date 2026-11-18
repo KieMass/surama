@@ -25,7 +25,8 @@ const auth = getAuth()
 const db = getFirestore()
 
 const USERS = [
-  { uid: 'test-consumer', email: 'consumer@test.local', name: 'Test Consumer', role: 'consumer' },
+  // A payment tester, so the Test plugin (sandbox-only) is offered to them.
+  { uid: 'test-consumer', email: 'consumer@test.local', name: 'Test Consumer', role: 'consumer', paymentTester: true },
   { uid: 'test-provider', email: 'provider@test.local', name: 'Test Provider', role: 'provider' },
   { uid: 'test-admin', email: 'admin@test.local', name: 'Test Admin', role: 'admin' },
 ]
@@ -89,7 +90,7 @@ const REQUESTS = {
   },
 }
 
-async function upsertUser({ uid, email, name, role }) {
+async function upsertUser({ uid, email, name, role, paymentTester = false }) {
   try {
     await auth.deleteUser(uid)
   } catch (err) {
@@ -100,6 +101,7 @@ async function upsertUser({ uid, email, name, role }) {
     name,
     email,
     role,
+    paymentTester,
     emailVerified: true,
     createdAt: FieldValue.serverTimestamp(),
   })

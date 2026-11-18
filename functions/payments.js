@@ -46,6 +46,26 @@ async function getPaymentSettings(db) {
   return settings
 }
 
+// The plugins this user may pay with: configured ones in live mode for
+// everyone, plus sandbox ones (no real money) for accounts an admin has
+// marked as payment testers — see plugins/index.js for why.
+async function availablePluginIds(db, uid) {
+  const statuses = Object.entries(PLUGINS).map(([id, plugin]) => [id, plugin.status()])
+  const needsTesterCheck = statuses.some(([, s]) => s.configured && s.mode !== 'live')
+  const isTester = needsTesterCheck && (await db.doc(`users/${uid}`).get()).data()?.paymentTester === true
+  return statuses
+    .filter(([, s]) => s.configured && (s.mode === 'live' || isTester))
+    .map(([id]) => id)
+}
+
+// What the checkout offers the signed-in user: [{ id, mode }].
+exports.listPaymentMethods = onCall(async (callReq) => {
+  const uid = callReq.auth?.uid
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.')
+  const ids = await availablePluginIds(getFirestore(), uid)
+  return ids.map((id) => ({ id, mode: PLUGINS[id].status().mode }))
+})
+
 // Creates a payment session for one leg (deposit or balance) of a request.
 // Reads + validates + stakes out the request's payment state inside a
 // transaction so two concurrent calls can't both start a payment for the
@@ -64,6 +84,9 @@ exports.createPaymentSession = onCall(async (callReq) => {
   if (!plugin) throw new HttpsError('invalid-argument', `Unknown payment plugin "${pluginId}".`)
 
   const db = getFirestore()
+  if (!(await availablePluginIds(db, uid)).includes(pluginId)) {
+    throw new HttpsError('permission-denied', 'That payment method isn’t available yet.')
+  }
   const settings = await getPaymentSettings(db)
   const reqRef = db.doc(`requests/${requestId}`)
   const paymentRef = db.collection('payments').doc()

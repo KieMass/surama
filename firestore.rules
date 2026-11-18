@@ -42,23 +42,28 @@ service cloud.firestore {
                     && request.auth.uid == userId
                     && request.resource.data.role in ['consumer', 'provider']
                     && !('disabled' in request.resource.data)
-                    && !('verified' in request.resource.data);
+                    && !('verified' in request.resource.data)
+                    && !('paymentTester' in request.resource.data);
 
       allow update: if request.auth != null
                     && request.auth.uid == userId
                     && !request.resource.data.diff(resource.data).affectedKeys()
-                         .hasAny(['role', 'disabled', 'verified']);
+                         .hasAny(['role', 'disabled', 'verified', 'paymentTester']);
 
       // Admins can disable/re-enable accounts, change roles, and toggle a
       // provider's verified badge from the admin pages, but can't otherwise
       // edit someone else's profile, and can't create or delete user docs
       // directly (those stay tied to Firebase Auth account creation/deletion).
       // They can also take down an inappropriate profile photo (photoURL
-      // may only be cleared, never set to something else).
+      // may only be cleared, never set to something else), and mark an
+      // account as a payment tester — the only accounts offered sandbox
+      // (no-real-money) payment methods; see functions/plugins/index.js.
       allow update: if isAdmin()
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled', 'role', 'verified', 'photoURL'])
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled', 'role', 'verified', 'photoURL', 'paymentTester'])
                     && (!('photoURL' in request.resource.data.diff(resource.data).affectedKeys())
-                        || request.resource.data.photoURL == null);
+                        || request.resource.data.photoURL == null)
+                    && (!('paymentTester' in request.resource.data.diff(resource.data).affectedKeys())
+                        || request.resource.data.paymentTester is bool);
     }
 
     // ── Public profiles ────────────────────────────────────────────────────

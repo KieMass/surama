@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { httpsCallable } from 'firebase/functions'
 import { doc, getDoc } from 'firebase/firestore'
 import { db, functions } from '../firebase'
@@ -10,23 +11,41 @@ export const PAYMENT_STATUS_LABEL = {
   paid: 'Paid in full',
 }
 
-// Every plugin the backend knows about. Selectable at checkout is a
-// filtered subset — see LIVE_PLUGIN_IDS below.
-const ALL_PAYMENT_PLUGINS = [
-  { id: 'mmg', label: 'MMG' },
-  { id: 'paypal', label: 'PayPal' },
-  { id: 'test', label: 'Test payment (no real money)' },
-]
+const PLUGIN_LABELS = {
+  mmg: 'MMG',
+  paypal: 'PayPal',
+  test: 'Test payment (no real money)',
+}
 
-// Gated here until each plugin has real credentials configured in the
-// deployed Functions environment (functions/.env — see .env.example).
-// Without that, selecting PayPal or MMG would fail with a clean but
-// unhelpful error, since nothing is configured server-side yet. Add
-// 'paypal' and/or 'mmg' back to this set once their credentials are in
-// place and each has been verified against its real sandbox.
-const LIVE_PLUGIN_IDS = new Set(['test'])
+// The payment methods this user can pay with, as [{ id, label, mode }].
+// The server decides (listPaymentMethods in functions/payments.js): a
+// method shows up once its credentials are configured, and while it's in
+// sandbox mode only for accounts an admin has marked as payment testers.
+// createPaymentSession enforces the same thing, so this list is only about
+// not offering buttons that would be refused.
+export function usePaymentMethods(uid) {
+  const [state, setState] = useState({ uid: null, methods: [] })
 
-export const PAYMENT_PLUGINS = ALL_PAYMENT_PLUGINS.filter((p) => LIVE_PLUGIN_IDS.has(p.id))
+  useEffect(() => {
+    if (!uid) return
+    let cancelled = false
+    httpsCallable(functions, 'listPaymentMethods')()
+      .then(({ data }) => data, () => [])
+      .then((list) => {
+        if (cancelled) return
+        setState({
+          uid,
+          methods: list.map((m) => ({
+            ...m,
+            label: `${PLUGIN_LABELS[m.id] ?? m.id}${m.mode === 'sandbox' && m.id !== 'test' ? ' (sandbox — testers only)' : ''}`,
+          })),
+        })
+      })
+    return () => { cancelled = true }
+  }, [uid])
+
+  return { methods: state.methods, loading: !!uid && state.uid !== uid }
+}
 
 // Starts a payment session for one leg of a request ('deposit' or
 // 'balance') through the given plugin. Returns a redirectUrl: an internal

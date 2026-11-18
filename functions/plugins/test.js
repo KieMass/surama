@@ -8,6 +8,10 @@
 // payment instead of trusting the client.
 exports.id = 'test'
 
+// Never moves real money, so it's always "sandbox" — only payment testers
+// can use it (see plugins/index.js).
+exports.status = () => ({ configured: true, mode: 'sandbox' })
+
 exports.createSession = async ({ paymentId }) => ({
   redirectUrl: `/pay/test/${paymentId}`,
   externalSessionId: null,

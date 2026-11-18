@@ -118,6 +118,42 @@ await signOut(auth)
 await expectError('signed-out callers are rejected',
   createPaymentSession({ requestId: 'test-req-deposit', type: 'deposit', pluginId: 'test' }), 'functions/unauthenticated')
 
+// ── Payment testers ────────────────────────────────────────────────────────
+// The Test plugin never moves real money, so only accounts an admin has
+// marked as payment testers may use it (the seeded consumer is one).
+const listPaymentMethods = httpsCallable(functions, 'listPaymentMethods')
+
+await signInAs('consumer')
+{
+  const { data } = await listPaymentMethods()
+  check('a payment tester is offered the Test plugin', data.some((m) => m.id === 'test' && m.mode === 'sandbox'), JSON.stringify(data))
+  await expectError('a consumer cannot make themselves a payment tester',
+    updateDoc(doc(db, 'users', auth.currentUser.uid), { paymentTester: false }), 'permission-denied')
+}
+await signOut(auth)
+
+await signInAs('admin')
+await expectError('admin cannot set paymentTester to a non-boolean',
+  updateDoc(doc(db, 'users', 'test-consumer'), { paymentTester: 'yes' }), 'permission-denied')
+await updateDoc(doc(db, 'users', 'test-consumer'), { paymentTester: false })
+check('admin can turn payment testing off for a user', (await read('users/test-consumer')).paymentTester === false)
+await signOut(auth)
+
+await signInAs('consumer')
+{
+  const { data } = await listPaymentMethods()
+  check('a non-tester is offered no sandbox methods', !data.some((m) => m.mode === 'sandbox'), JSON.stringify(data))
+  await expectError('a non-tester cannot pay with the Test plugin',
+    createPaymentSession({ requestId: 'test-req-settings', type: 'deposit', pluginId: 'test' }), 'functions/permission-denied')
+  check('the refused attempt left the request untouched',
+    (await read('requests/test-req-settings')).paymentStatus === 'unpaid')
+}
+await signOut(auth)
+
+await signInAs('admin')
+await updateDoc(doc(db, 'users', 'test-consumer'), { paymentTester: true })
+await signOut(auth)
+
 // ── Admin payment settings ─────────────────────────────────────────────────
 // Same write the admin Payments page makes (src/lib/admin.js).
 const writeSettings = (fields) => setDoc(doc(db, 'settings', 'payments'), {
