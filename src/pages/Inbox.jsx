@@ -5,6 +5,8 @@ import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { asset } from '../lib/asset'
 import { subscribeToConversations } from '../lib/conversations'
+import { useProfiles } from '../lib/profiles'
+import Avatar from '../components/Avatar'
 
 function timeAgo(ts) {
   if (!ts?.toDate) return ''
@@ -22,6 +24,7 @@ export default function Inbox() {
   const navigate = useNavigate()
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
+  const profiles = useProfiles(conversations.flatMap((c) => [c.consumerId, c.providerId]).filter((id) => id !== user?.uid))
 
   useEffect(() => {
     if (!user) return
@@ -94,8 +97,8 @@ export default function Inbox() {
         <div className="space-y-2">
           {conversations.map((conv) => {
             const isConsumer = user.uid === conv.consumerId
-            const otherName = isConsumer ? conv.providerName : conv.consumerName
-            const initials = otherName?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
+            const otherId = isConsumer ? conv.providerId : conv.consumerId
+            const otherName = (isConsumer ? conv.providerName : conv.consumerName) || profiles[otherId]?.name
 
             const lastMsg  = conv.lastMessageAt?.toMillis?.() ?? 0
             const lastRead = conv.readBy?.[user.uid]?.toMillis?.() ?? 0
@@ -110,12 +113,7 @@ export default function Inbox() {
                 }`}
               >
                 <div className="relative flex-shrink-0">
-                  <div
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-sm"
-                    style={{ background: 'linear-gradient(135deg, #ff5a5f, #c93338)' }}
-                  >
-                    {initials}
-                  </div>
+                  <Avatar name={otherName} photoURL={profiles[otherId]?.photoURL} className="w-12 h-12 rounded-2xl text-sm" />
                   {isUnread && (
                     <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
                   )}

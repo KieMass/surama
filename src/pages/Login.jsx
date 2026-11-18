@@ -104,7 +104,7 @@ export default function Login() {
           </div>
         </div>
 
-        <p className="text-white/50 text-xs relative z-10">© 2025 Surama.net. Built for Guyana.</p>
+        <p className="text-white/50 text-xs relative z-10">© {new Date().getFullYear()} Surama.net. Built for Guyana.</p>
       </div>
 
       {/* ── Right form panel ── */}

@@ -53,11 +53,52 @@ service cloud.firestore {
       // provider's verified badge from the admin pages, but can't otherwise
       // edit someone else's profile, and can't create or delete user docs
       // directly (those stay tied to Firebase Auth account creation/deletion).
+      // They can also take down an inappropriate profile photo (photoURL
+      // may only be cleared, never set to something else).
       allow update: if isAdmin()
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled', 'role', 'verified']);
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled', 'role', 'verified', 'photoURL'])
+                    && (!('photoURL' in request.resource.data.diff(resource.data).affectedKeys())
+                        || request.resource.data.photoURL == null);
+    }
+
+    // ── Public profiles ────────────────────────────────────────────────────
+    // profiles/{uid}: just the name and photo shown next to someone's
+    // listings, reviews and messages — public, unlike users/{uid}, so
+    // signed-out visitors see them too. The owner keeps it in step with
+    // their user doc (see src/lib/profiles.js). The photo must be one of
+    // their own uploads in this project's Storage avatars folder, so a
+    // profile can't hotlink an arbitrary outside image that admins can't
+    // moderate. (The 127.0.0.1:9199 form is the local Storage emulator.)
+    function validProfile(uid, d) {
+      return d.keys().hasOnly(['name', 'photoURL'])
+        && d.keys().hasAll(['name', 'photoURL'])
+        && d.name is string && d.name.size() <= 100
+        && (d.photoURL == null
+            || (d.photoURL is string
+                && d.photoURL.matches('(https://firebasestorage[.]googleapis[.]com|http://127[.]0[.]0[.]1:9199)/v0/b/[^/]+/o/avatars%2F' + uid + '%2F.*')));
+    }
+
+    match /profiles/{userId} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+                            && request.auth.uid == userId
+                            && validProfile(userId, request.resource.data);
+      // Admins can only clear the photo (moderation), nothing else.
+      allow update: if isAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoURL'])
+                    && request.resource.data.photoURL == null;
     }
 
     // ── Services ───────────────────────────────────────────────────────────
+    // A listing's photos: images is the gallery (up to 6, in display order)
+    // and imageUrl its cover — always images[0], kept as its own field so
+    // listing cards (and listings saved before galleries existed) only need
+    // the one URL.
+    function validListingImages(d) {
+      return (!('images' in d) || (d.images is list && d.images.size() <= 6))
+        && (!('imageUrl' in d) || d.imageUrl == null || d.imageUrl is string);
+    }
+
     // Anyone (including unauthenticated visitors) can read active listings.
     // Only authenticated providers (role verified via user doc) can create
     // or modify their own listings.
@@ -71,7 +112,8 @@ service cloud.firestore {
                     && request.resource.data.title is string
                     && request.resource.data.title.size() <= 200
                     && request.resource.data.description is string
-                    && request.resource.data.description.size() <= 2000;
+                    && request.resource.data.description.size() <= 2000
+                    && validListingImages(request.resource.data);
       // Same field validation as create — an owner edit shouldn't be able to
       // set a negative price or an oversized title/description that create
       // already blocks.
@@ -82,15 +124,19 @@ service cloud.firestore {
                     && request.resource.data.title is string
                     && request.resource.data.title.size() <= 200
                     && request.resource.data.description is string
-                    && request.resource.data.description.size() <= 2000;
+                    && request.resource.data.description.size() <= 2000
+                    && validListingImages(request.resource.data);
       allow delete: if request.auth != null
                     && resource.data.providerId == request.auth.uid;
 
       // Admins can take a listing down (or restore it) and correct the
       // rating aggregate when they delete a review, but can't touch
       // anything else about someone else's listing.
+      // They can also remove an inappropriate photo, which rewrites the
+      // gallery (images) and its cover (imageUrl).
       allow update: if isAdmin()
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'ratingSum', 'ratingCount']);
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'ratingSum', 'ratingCount', 'images', 'imageUrl'])
+                    && validListingImages(request.resource.data);
     }
 
     // ── Requests ───────────────────────────────────────────────────────────

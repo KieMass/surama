@@ -5,6 +5,7 @@ import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { asset } from '../lib/asset'
+import { syncProfile } from '../lib/profiles'
 
 const ROLE_INFO = {
   consumer: {
@@ -42,6 +43,7 @@ export default function Register() {
         createdAt: serverTimestamp(),
         emailVerified: false,
       })
+      await syncProfile(cred.user.uid, { name: form.name, photoURL: null })
       await sendEmailVerification(cred.user)
       navigate(role === 'provider' ? '/provider/dashboard' : '/consumer/dashboard')
     } catch (err) {
@@ -83,7 +85,7 @@ export default function Register() {
           </div>
         </div>
 
-        <p className="text-white/50 text-xs relative z-10">© 2025 Surama.net. Built for Guyana.</p>
+        <p className="text-white/50 text-xs relative z-10">© {new Date().getFullYear()} Surama.net. Built for Guyana.</p>
       </div>
 
       {/* ── Right form panel ── */}

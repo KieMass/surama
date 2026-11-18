@@ -6,6 +6,8 @@ import {
   sendMessage,
   markConversationRead,
 } from '../lib/conversations'
+import { useProfiles } from '../lib/profiles'
+import Avatar from './Avatar'
 
 function timeAgo(ts) {
   if (!ts?.toDate) return ''
@@ -43,6 +45,7 @@ export default function ChatBubble() {
   const [messages, setMessages]       = useState([])
   const [text, setText]               = useState('')
   const [sending, setSending]         = useState(false)
+  const profiles = useProfiles(conversations.flatMap((c) => [c.consumerId, c.providerId]).filter((id) => id !== user?.uid))
 
   const prevConvsRef    = useRef({})
   const initializedRef  = useRef(false)
@@ -108,8 +111,11 @@ export default function ChatBubble() {
   }
 
   const activeConv = conversations.find((c) => c.id === activeConvId)
+  const otherId = activeConv
+    ? (user.uid === activeConv.consumerId ? activeConv.providerId : activeConv.consumerId)
+    : null
   const otherName  = activeConv
-    ? (user.uid === activeConv.consumerId ? activeConv.providerName : activeConv.consumerName)
+    ? ((user.uid === activeConv.consumerId ? activeConv.providerName : activeConv.consumerName) || profiles[otherId]?.name)
     : ''
 
   return (
@@ -134,6 +140,7 @@ export default function ChatBubble() {
                 >
                   ←
                 </button>
+                <Avatar name={otherName} photoURL={profiles[otherId]?.photoURL} className="w-8 h-8 rounded-full text-xs ring-2 ring-white/30" />
                 <div className="min-w-0">
                   <p className="text-white font-semibold text-sm truncate">{otherName || 'Chat'}</p>
                   {activeConv.serviceTitle && (
@@ -223,8 +230,8 @@ export default function ChatBubble() {
               ) : (
                 conversations.map((conv) => {
                   const isConsumer = user.uid === conv.consumerId
-                  const name    = isConsumer ? conv.providerName : conv.consumerName
-                  const initials = name?.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
+                  const convOtherId = isConsumer ? conv.providerId : conv.consumerId
+                  const name    = (isConsumer ? conv.providerName : conv.consumerName) || profiles[convOtherId]?.name
                   const lastMsg  = conv.lastMessageAt?.toMillis?.() ?? 0
                   const lastRead = conv.readBy?.[user.uid]?.toMillis?.() ?? 0
                   const isUnread = lastMsg > lastRead && conv.lastMessageBy !== user.uid
@@ -238,12 +245,7 @@ export default function ChatBubble() {
                       }`}
                     >
                       <div className="relative flex-shrink-0">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-xs"
-                          style={{ background: 'linear-gradient(135deg, #ff5a5f, #c93338)' }}
-                        >
-                          {initials}
-                        </div>
+                        <Avatar name={name} photoURL={profiles[convOtherId]?.photoURL} className="w-10 h-10 rounded-xl text-xs" />
                         {isUnread && (
                           <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
                         )}

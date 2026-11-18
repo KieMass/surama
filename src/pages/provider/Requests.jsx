@@ -5,6 +5,8 @@ import { auth } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useNotifications } from '../../context/NotificationContext'
 import NavBadge from '../../components/NavBadge'
+import Avatar from '../../components/Avatar'
+import { useProfile } from '../../lib/profiles'
 import { asset } from '../../lib/asset'
 import {
   getRequestsForProvider,
@@ -32,6 +34,7 @@ function formatDate(timestamp) {
 
 function JobDetailPanel({ r, onStatusChange, onRequestCompletion, onPricePropose, onPriceAccept, onPriceDecline, busyId, onSaved, currentUser, userDoc }) {
   const navigate = useNavigate()
+  const customerProfile = useProfile(r.consumerId)
   const [notes, setNotes]             = useState(r.providerNotes ?? '')
   const [scheduledDate, setScheduled] = useState(r.scheduledDate ?? r.preferredDate ?? '')
   const [saving, setSaving]           = useState(false)
@@ -103,11 +106,16 @@ function JobDetailPanel({ r, onStatusChange, onRequestCompletion, onPricePropose
 
           <div>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Customer</p>
-            <p className="text-sm font-semibold text-gray-800">{r.consumerName || 'Customer'}</p>
-            {(isAccepted || isCompleted) && r.consumerEmail && (
-              <a href={`mailto:${r.consumerEmail}`}
-                className="text-xs text-primary-600 hover:underline">{r.consumerEmail}</a>
-            )}
+            <div className="flex items-center gap-2.5">
+              <Avatar name={r.consumerName} photoURL={customerProfile?.photoURL} variant="soft" className="w-9 h-9 rounded-full text-xs" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-800">{r.consumerName || 'Customer'}</p>
+                {(isAccepted || isCompleted) && r.consumerEmail && (
+                  <a href={`mailto:${r.consumerEmail}`}
+                    className="text-xs text-primary-600 hover:underline">{r.consumerEmail}</a>
+                )}
+              </div>
+            </div>
           </div>
 
           {r.message && (

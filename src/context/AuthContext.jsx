@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
+import { syncProfile } from '../lib/profiles'
 
 const AuthContext = createContext(null)
 
@@ -48,6 +49,11 @@ export function AuthProvider({ children }) {
           setLoading(false)
           return
         }
+
+        // Keep the public profile (name + photo, see lib/profiles.js) in
+        // step — this is also how accounts created before profiles existed
+        // get one. Not awaited: it's cosmetic and shouldn't delay sign-in.
+        if (data) syncProfile(firebaseUser.uid, { name: data.name, photoURL: data.photoURL })
 
         setUser(auth.currentUser)
         setUserDoc(data)

@@ -6,16 +6,13 @@ import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { asset } from '../lib/asset'
 import { updateUserProfile, uploadAvatar, removeAvatar, changePassword, changeEmail } from '../lib/users'
+import { checkImageFile } from '../lib/images'
+import Avatar from '../components/Avatar'
 
 const GRADIENT = 'linear-gradient(135deg, #ff5a5f 0%, #e8464b 55%, #c93338 100%)'
 
 const inputClass =
   'w-full border border-gray-200 rounded-xl px-4 py-3 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition'
-
-function initials(name) {
-  if (!name) return '?'
-  return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
-}
 
 export default function Account() {
   const { userDoc, refreshUserDoc } = useAuth()
@@ -63,18 +60,15 @@ export default function Account() {
     const file = e.target.files[0] || null
     e.target.value = ''
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-      setPhotoError('Image must be under 5 MB.')
-      return
-    }
-    if (!file.type.startsWith('image/')) {
-      setPhotoError('Please choose an image file.')
+    const problem = checkImageFile(file)
+    if (problem) {
+      setPhotoError(problem)
       return
     }
     setPhotoError('')
     setUploadingPhoto(true)
     try {
-      await uploadAvatar(auth.currentUser.uid, file, userDoc?.photoURL)
+      await uploadAvatar(auth.currentUser.uid, file, userDoc?.photoURL, userDoc?.name)
       await refreshUserDoc()
     } catch (err) {
       setPhotoError(err.message)
@@ -87,7 +81,7 @@ export default function Account() {
     setUploadingPhoto(true)
     setPhotoError('')
     try {
-      await removeAvatar(auth.currentUser.uid, userDoc?.photoURL)
+      await removeAvatar(auth.currentUser.uid, userDoc?.photoURL, userDoc?.name)
       await refreshUserDoc()
     } catch (err) {
       setPhotoError(err.message)
@@ -102,7 +96,7 @@ export default function Account() {
     setProfileSaved(false)
     setSavingProfile(true)
     try {
-      await updateUserProfile(auth.currentUser.uid, { name: name.trim(), phone: phone.trim() })
+      await updateUserProfile(auth.currentUser.uid, { name: name.trim(), phone: phone.trim(), photoURL: userDoc?.photoURL })
       await refreshUserDoc()
       setProfileSaved(true)
       setTimeout(() => setProfileSaved(false), 3000)
@@ -200,13 +194,7 @@ export default function Account() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-4">Profile photo</h2>
           <div className="flex items-center gap-5">
-            {userDoc?.photoURL ? (
-              <img src={userDoc.photoURL} alt="Your profile" className="w-20 h-20 rounded-full object-cover border border-gray-100" />
-            ) : (
-              <div className="w-20 h-20 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-2xl font-bold flex-shrink-0">
-                {initials(userDoc?.name)}
-              </div>
-            )}
+            <Avatar name={userDoc?.name} photoURL={userDoc?.photoURL} variant="soft" className="w-20 h-20 rounded-full text-2xl border border-gray-100" />
             <div className="flex flex-col gap-2">
               <label className="inline-block cursor-pointer bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors w-fit disabled:opacity-50">
                 {uploadingPhoto ? 'Uploading…' : userDoc?.photoURL ? 'Change photo' : 'Upload photo'}
@@ -229,7 +217,7 @@ export default function Account() {
               {photoError}
             </div>
           )}
-          <p className="text-xs text-gray-400 mt-3">JPG, PNG, or WEBP — up to 5 MB.</p>
+          <p className="text-xs text-gray-400 mt-3">JPG, PNG, or WEBP. Large photos are resized automatically. Shown on your listings, reviews and messages.</p>
         </div>
 
         {/* Profile details */}

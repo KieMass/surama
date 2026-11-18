@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { db, auth } from '../../firebase'
 import { asset } from '../../lib/asset'
+import { deleteImageByUrl, listingPhotoUrls } from '../../lib/images'
 
 const GRADIENT = 'linear-gradient(135deg, #ff5a5f 0%, #e8464b 55%, #c93338 100%)'
 
@@ -27,6 +28,10 @@ export default function MyListings() {
   const deleteListing = async (id) => {
     if (!window.confirm('Delete this listing? This cannot be undone.')) return
     await deleteDoc(doc(db, 'services', id))
+    // Best-effort cleanup of the listing's photos — they'd otherwise linger
+    // in Storage with nothing pointing at them.
+    const listing = listings.find((l) => l.id === id)
+    await Promise.all(listingPhotoUrls(listing).map(deleteImageByUrl))
     setListings((prev) => prev.filter((l) => l.id !== id))
   }
 

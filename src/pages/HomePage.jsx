@@ -5,6 +5,8 @@ import { signOut } from 'firebase/auth'
 import { db, auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { asset } from '../lib/asset'
+import { getProfiles, useProfiles } from '../lib/profiles'
+import Avatar from '../components/Avatar'
 import {
   SprayCan, Wrench, Zap, Hammer, BookOpen, ChefHat,
   Camera, Sparkles, Leaf, Laptop, Car, PartyPopper, BadgeCheck,
@@ -148,6 +150,9 @@ function Navbar({ onBrowse }) {
               >
                 Sign Out
               </button>
+              <Link to="/account" aria-label="Account settings" title="Account settings">
+                <Avatar name={userDoc?.name} photoURL={userDoc?.photoURL} className="w-9 h-9 rounded-full text-xs" />
+              </Link>
             </>
           ) : (
             <>
@@ -496,7 +501,8 @@ function ServiceCard({ service }) {
       <div className="p-4 flex flex-col flex-1">
         <h3 className="font-semibold text-gray-900 leading-snug mb-1">{service.title}</h3>
         <p className="text-xs text-gray-400 line-clamp-2 mb-2">{service.description}</p>
-        <p className="text-xs text-gray-400 mb-3 flex items-center gap-1">
+        <p className="text-xs text-gray-400 mb-3 flex items-center gap-1.5">
+          <Avatar name={service.providerName} photoURL={service.providerPhotoURL} className="w-5 h-5 rounded-full text-[9px]" />
           by {service.providerName ?? 'Local Provider'}
           {service.providerVerified && (
             <BadgeCheck size={13} className="text-sky-500" aria-label="Verified provider" />
@@ -628,9 +634,10 @@ function HowItWorks() {
 
 // ─── Testimonials ─────────────────────────────────────────────────────────────
 function TestimonialsSection({ testimonials, services }) {
+  const display = testimonials.slice(0, 3)
+  const profiles = useProfiles(display.map((r) => r.consumerId))
   if (testimonials.length === 0) return null
   const serviceMap = Object.fromEntries(services.map((s) => [s.id, s]))
-  const display = testimonials.slice(0, 3)
 
   return (
     <section className="bg-white py-20 px-6 border-t border-gray-100">
@@ -653,16 +660,24 @@ function TestimonialsSection({ testimonials, services }) {
                 <p className="text-sm text-gray-700 italic leading-relaxed flex-1">
                   "{review.comment}"
                 </p>
-                <div className="border-t border-gray-200 pt-4 mt-4">
-                  <p className="text-sm font-semibold text-gray-800">{review.consumerName || 'Verified customer'}</p>
-                  {svc && (
-                    <Link
-                      to={`/services/${svc.id}`}
-                      className="text-xs text-primary-600 hover:underline mt-0.5 block truncate"
-                    >
-                      {svc.title}
-                    </Link>
-                  )}
+                <div className="border-t border-gray-200 pt-4 mt-4 flex items-center gap-3">
+                  <Avatar
+                    name={review.consumerName}
+                    photoURL={profiles[review.consumerId]?.photoURL}
+                    variant="soft"
+                    className="w-10 h-10 rounded-full text-sm"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">{review.consumerName || 'Verified customer'}</p>
+                    {svc && (
+                      <Link
+                        to={`/services/${svc.id}`}
+                        className="text-xs text-primary-600 hover:underline mt-0.5 block truncate"
+                      >
+                        {svc.title}
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
             )
@@ -752,7 +767,7 @@ function Footer() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600">
-          <span>© 2025 Surama.net — All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Surama.net — All rights reserved.</span>
           <span className="flex items-center gap-1.5">🇬🇾 Built for Guyana</span>
         </div>
       </div>
@@ -788,8 +803,12 @@ export default function HomePage() {
         const uniqueIds = [...new Set(raw.map((s) => s.providerId).filter(Boolean))]
         const nameMap = {}
         const verifiedMap = {}
-        await Promise.all(
-          uniqueIds.map(async (uid) => {
+        // Public profiles give everyone (signed out too) the provider's name
+        // and photo; the verified badge still comes from the user doc, which
+        // only signed-in visitors can read.
+        const [profiles] = await Promise.all([
+          getProfiles(uniqueIds),
+          ...uniqueIds.map(async (uid) => {
             try {
               const userSnap = await getDoc(doc(db, 'users', uid))
               if (userSnap.exists()) {
@@ -797,11 +816,16 @@ export default function HomePage() {
                 verifiedMap[uid] = !!userSnap.data().verified
               }
             } catch { /* skip */ }
-          })
-        )
+          }),
+        ])
 
         const sorted = raw
-          .map((s) => ({ ...s, providerName: nameMap[s.providerId], providerVerified: verifiedMap[s.providerId] }))
+          .map((s) => ({
+            ...s,
+            providerName: nameMap[s.providerId] ?? profiles[s.providerId]?.name,
+            providerPhotoURL: profiles[s.providerId]?.photoURL,
+            providerVerified: verifiedMap[s.providerId],
+          }))
           .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
 
         setServices(sorted)

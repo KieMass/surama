@@ -11,8 +11,10 @@ import {
   setUserDisabled,
   setUserRole,
   setUserVerified,
+  removeUserPhoto,
   ROLES,
 } from '../../lib/admin'
+import Avatar from '../../components/Avatar'
 import { STATUS_LABEL, STATUS_BADGE } from '../../lib/requests'
 
 const PAGE_SIZE = 50
@@ -24,11 +26,6 @@ const ROLE_BADGE = {
 }
 
 const ROLE_LABEL = { admin: 'Admin', provider: 'Provider', consumer: 'Consumer' }
-
-function initials(name) {
-  if (!name) return '?'
-  return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
-}
 
 // ─── Status counts for one side of a user's booking history ────────────────
 function StatusBreakdown({ requests }) {
@@ -47,7 +44,7 @@ function StatusBreakdown({ requests }) {
 }
 
 // ─── Slide-over with a user's listings, bookings, and reviews written ──────
-function UserDetailDrawer({ user, data, loading, onClose }) {
+function UserDetailDrawer({ user, data, loading, onClose, onRemovePhoto, busy, error }) {
   if (!user) return null
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -63,13 +60,20 @@ function UserDetailDrawer({ user, data, loading, onClose }) {
         <div className="p-6 space-y-6">
           {/* Identity */}
           <div className="flex items-center gap-4">
-            {user.photoURL ? (
-              <img src={user.photoURL} alt="" className="w-16 h-16 rounded-full object-cover border border-gray-100 flex-shrink-0" />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
-                {initials(user.name)}
-              </div>
-            )}
+            <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+              <Avatar name={user.name} photoURL={user.photoURL} variant="soft" className="w-16 h-16 rounded-full text-xl border border-gray-100" />
+              {user.photoURL && (
+                <button
+                  type="button"
+                  onClick={() => onRemovePhoto(user)}
+                  disabled={busy}
+                  className="text-[11px] font-semibold text-red-600 hover:underline disabled:opacity-50"
+                >
+                  {busy ? 'Removing…' : 'Remove photo'}
+                </button>
+              )}
+              {error && <p className="text-[11px] text-red-500 max-w-[6rem] text-center">{error}</p>}
+            </div>
             <div className="min-w-0">
               <p className="font-bold text-gray-900 text-lg truncate">{user.name || 'Unnamed'}</p>
               <p className="text-sm text-gray-500 truncate">{user.email}</p>
@@ -324,6 +328,19 @@ export default function AdminUsers() {
     })
   }
 
+  const requestRemovePhoto = (u) => {
+    setConfirmAction({
+      title: 'Remove this profile photo?',
+      message: `${u.name || u.email}'s photo will be deleted and replaced by their initials everywhere on the site. They can upload a new one.`,
+      confirmLabel: 'Remove photo',
+      run: () => withRow(u.id, async () => {
+        await removeUserPhoto(u)
+        setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, photoURL: null } : x)))
+        setDetailUser((prev) => (prev?.id === u.id ? { ...prev, photoURL: null } : prev))
+      }),
+    })
+  }
+
   const requestRoleChange = async (u, role) => {
     if (role === u.role) return
     // Routine consumer ↔ provider changes don't need a confirmation.
@@ -465,13 +482,7 @@ export default function AdminUsers() {
                     <tr key={u.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition-colors">
                       <td className="px-5 py-4">
                         <button onClick={() => openDetail(u)} className="flex items-center gap-3 text-left group">
-                          {u.photoURL ? (
-                            <img src={u.photoURL} alt="" className="w-9 h-9 rounded-full object-cover border border-gray-100 flex-shrink-0" />
-                          ) : (
-                            <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                              {initials(u.name)}
-                            </div>
-                          )}
+                          <Avatar name={u.name} photoURL={u.photoURL} variant="soft" className="w-9 h-9 rounded-full text-xs border border-gray-100" />
                           <div className="min-w-0">
                             <p className="font-semibold text-gray-900 truncate group-hover:text-primary-600 transition-colors">{u.name || 'Unnamed'}</p>
                             {isSelf && <span className="text-[11px] font-semibold text-primary-600">You</span>}
@@ -571,6 +582,9 @@ export default function AdminUsers() {
         data={detailData}
         loading={detailLoading}
         onClose={() => { setDetailUser(null); setDetailData(null) }}
+        onRemovePhoto={requestRemovePhoto}
+        busy={busyId === detailUser?.id}
+        error={detailUser ? rowError[detailUser.id] : ''}
       />
     </AdminLayout>
   )

@@ -16,6 +16,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { auth, db } from '../firebase'
+import { deleteImageByUrl, listingPhotoUrls } from './images'
 
 export const ROLES = ['consumer', 'provider', 'admin']
 
@@ -167,6 +168,39 @@ export async function deleteReview(review) {
       }
     }
   })
+}
+
+// ── Photo moderation ─────────────────────────────────────────────────────
+
+// Takes down a user's profile photo: clears it from their user doc and
+// public profile, then deletes the file. (Their Firebase Auth photoURL
+// can't be changed from here, but nothing in the app displays it.)
+export async function removeUserPhoto(user) {
+  await updateDoc(doc(db, 'users', user.id), { photoURL: null })
+  try {
+    await updateDoc(doc(db, 'profiles', user.id), { photoURL: null })
+  } catch {
+    // No public profile yet — nothing public to clear.
+  }
+  await deleteImageByUrl(user.photoURL)
+}
+
+// Removes one photo from a listing's gallery (re-picking the cover if it
+// was the cover) and deletes the file. Re-reads the listing inside a
+// transaction so it can't clobber a gallery edit the provider saved
+// meanwhile. Returns the updated { images, imageUrl }.
+export async function removeListingPhoto(listingId, url) {
+  const result = await runTransaction(db, async (tx) => {
+    const ref = doc(db, 'services', listingId)
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Listing not found.')
+    const images = listingPhotoUrls(snap.data()).filter((u) => u !== url)
+    const updated = { images, imageUrl: images[0] ?? null }
+    tx.update(ref, updated)
+    return updated
+  })
+  await deleteImageByUrl(url)
+  return result
 }
 
 // ── Payment settings ─────────────────────────────────────────────────────

@@ -8,6 +8,10 @@ import { createRequest } from '../lib/requests'
 import { getReviewsForService, averageRating } from '../lib/reviews'
 import { getOrCreateConversation } from '../lib/conversations'
 import StarRating from '../components/StarRating'
+import Avatar from '../components/Avatar'
+import ListingGallery from '../components/ListingGallery'
+import { useProfiles } from '../lib/profiles'
+import { listingPhotoUrls } from '../lib/images'
 import { BadgeCheck } from 'lucide-react'
 
 function timeAgo(timestamp) {
@@ -43,6 +47,12 @@ export default function ServiceDetail() {
   const [providerListings, setProviderListings] = useState([])
   const [providerReviewStats, setProviderReviewStats] = useState({ count: 0, avg: null })
   const [relatedServices, setRelatedServices] = useState([])
+
+  // Public profiles (name + photo) — readable signed out, unlike the
+  // provider's user doc, so visitors see who the provider is too.
+  const profiles = useProfiles([service?.providerId, ...reviews.map((r) => r.consumerId)])
+  const providerName = provider?.name ?? profiles[service?.providerId]?.name
+  const providerPhotoURL = profiles[service?.providerId]?.photoURL ?? provider?.photoURL
 
   useEffect(() => {
     const fetch = async () => {
@@ -135,7 +145,7 @@ export default function ServiceDetail() {
         consumerId: user.uid,
         consumerName: userDoc?.name ?? '',
         providerId: service.providerId,
-        providerName: provider?.name ?? 'Provider',
+        providerName: providerName ?? 'Provider',
         serviceId: service.id,
         serviceTitle: service.title,
       })
@@ -185,9 +195,6 @@ export default function ServiceDetail() {
   }))
   const ratingMax = Math.max(...ratingBreakdown.map((b) => b.count), 1)
 
-  const initials = provider?.name
-    ? provider.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-    : '?'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -206,20 +213,22 @@ export default function ServiceDetail() {
 
       <div className="max-w-5xl mx-auto px-6 py-8">
 
-        {/* Hero image */}
+        {/* Photos */}
         <div className="rounded-2xl overflow-hidden mb-8 shadow-sm">
-          {service.imageUrl ? (
-            <img src={service.imageUrl} alt={service.title} className="w-full h-64 sm:h-80 object-cover" />
-          ) : (
-            <div
-              className="w-full h-64 sm:h-80 flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #fff1f2 0%, #ffcdd0 100%)' }}
-            >
-              <span className="text-9xl font-black text-primary-200 select-none">
-                {service.category?.[0] ?? 'S'}
-              </span>
-            </div>
-          )}
+          <ListingGallery
+            urls={listingPhotoUrls(service)}
+            title={service.title}
+            fallback={
+              <div
+                className="w-full h-64 sm:h-80 flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, #fff1f2 0%, #ffcdd0 100%)' }}
+              >
+                <span className="text-9xl font-black text-primary-200 select-none">
+                  {service.category?.[0] ?? 'S'}
+                </span>
+              </div>
+            }
+          />
         </div>
 
         {/* Main content */}
@@ -256,15 +265,10 @@ export default function ServiceDetail() {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
               <h2 className="font-bold text-gray-900 mb-4 text-lg">About the provider</h2>
               <div className="flex items-center gap-4 mb-5">
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-extrabold text-lg flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #ff5a5f, #c93338)' }}
-                >
-                  {initials}
-                </div>
+                <Avatar name={providerName} photoURL={providerPhotoURL} className="w-14 h-14 rounded-2xl text-lg" />
                 <div>
                   <p className="font-semibold text-gray-900 text-lg flex items-center gap-1.5">
-                    {provider?.name ?? 'Local Provider'}
+                    {providerName ?? 'Local Provider'}
                     {provider?.verified && (
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-100 rounded-full px-2 py-0.5">
                         <BadgeCheck size={12} /> Verified
@@ -345,7 +349,15 @@ export default function ServiceDetail() {
                     {reviews.map((rv) => (
                       <div key={rv.id} className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
                         <div className="flex items-center justify-between mb-1">
-                          <p className="text-sm font-semibold text-gray-800">{rv.consumerName || 'Verified customer'}</p>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Avatar
+                              name={rv.consumerName}
+                              photoURL={profiles[rv.consumerId]?.photoURL}
+                              variant="soft"
+                              className="w-8 h-8 rounded-full text-xs"
+                            />
+                            <p className="text-sm font-semibold text-gray-800 truncate">{rv.consumerName || 'Verified customer'}</p>
+                          </div>
                           <span className="text-amber-400 text-sm">{'★'.repeat(rv.rating)}{'☆'.repeat(5 - rv.rating)}</span>
                         </div>
                         {rv.comment && <p className="text-sm text-gray-600">{rv.comment}</p>}
@@ -374,14 +386,9 @@ export default function ServiceDetail() {
               <div className="p-6 space-y-4">
                 {/* Provider summary */}
                 <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg, #ff5a5f, #c93338)' }}
-                  >
-                    {initials}
-                  </div>
+                  <Avatar name={providerName} photoURL={providerPhotoURL} className="w-9 h-9 rounded-xl text-sm" />
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">{provider?.name ?? 'Local Provider'}</p>
+                    <p className="text-sm font-semibold text-gray-800">{providerName ?? 'Local Provider'}</p>
                     <p className="text-xs text-gray-400">Provider</p>
                   </div>
                 </div>
@@ -392,7 +399,7 @@ export default function ServiceDetail() {
                     <p className="text-2xl mb-1">✅</p>
                     <p className="text-sm font-bold text-gray-800">Request sent!</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {provider?.name ?? 'The provider'} will review your request and respond soon.
+                      {providerName ?? 'The provider'} will review your request and respond soon.
                     </p>
                     <Link
                       to="/consumer/requests"

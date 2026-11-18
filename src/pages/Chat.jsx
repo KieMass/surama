@@ -5,6 +5,8 @@ import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { asset } from '../lib/asset'
 import { subscribeToMessages, sendMessage, markConversationRead } from '../lib/conversations'
+import { useProfile } from '../lib/profiles'
+import Avatar from '../components/Avatar'
 
 function formatTime(ts) {
   if (!ts?.toDate) return ''
@@ -33,6 +35,9 @@ export default function Chat() {
   const [sending, setSending]           = useState(false)
   const [loading, setLoading]           = useState(true)
   const bottomRef = useRef(null)
+  const otherProfile = useProfile(
+    conversation && (user?.uid === conversation.consumerId ? conversation.providerId : conversation.consumerId)
+  )
 
   useEffect(() => {
     getDoc(doc(db, 'conversations', conversationId)).then((snap) => {
@@ -72,7 +77,7 @@ export default function Chat() {
   }
 
   const otherName = conversation
-    ? (user?.uid === conversation.consumerId ? conversation.providerName : conversation.consumerName)
+    ? ((user?.uid === conversation.consumerId ? conversation.providerName : conversation.consumerName) || otherProfile?.name)
     : '…'
 
   // Group messages by day for date separators
@@ -97,6 +102,7 @@ export default function Chat() {
         >
           ←
         </button>
+        {!loading && <Avatar name={otherName} photoURL={otherProfile?.photoURL} className="w-9 h-9 rounded-full text-xs" />}
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-900 text-sm leading-tight truncate">
             {loading ? '…' : (otherName || 'Chat')}

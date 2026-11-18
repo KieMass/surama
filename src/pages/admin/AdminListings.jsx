@@ -1,11 +1,56 @@
 import { useEffect, useMemo, useState } from 'react'
 import { doc, getDoc } from 'firebase/firestore'
-import { Search, CheckCircle2, Ban } from 'lucide-react'
+import { Search, CheckCircle2, Ban, X, Images } from 'lucide-react'
 import { db } from '../../firebase'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import AdminLayout from './AdminLayout'
 import { formatDate, StatCard } from './shared'
-import { fetchAllListings, setListingActive } from '../../lib/admin'
+import { fetchAllListings, setListingActive, removeListingPhoto } from '../../lib/admin'
+import { listingPhotoUrls } from '../../lib/images'
+
+// Every photo on one listing, each removable (moderation).
+function ListingPhotosPanel({ listing, busyUrl, error, onRemove, onClose }) {
+  if (!listing) return null
+  const urls = listingPhotoUrls(listing)
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+          <div className="min-w-0">
+            <h3 className="font-bold text-gray-900 truncate">{listing.title}</h3>
+            <p className="text-xs text-gray-500">{urls.length} photo{urls.length === 1 ? '' : 's'} · the first is the cover</p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-700 transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-6">
+          {error && <div className="mb-4 bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3 rounded-xl">{error}</div>}
+          {urls.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-10">This listing has no photos.</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {urls.map((url, i) => (
+                <div key={url} className="space-y-2">
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="block aspect-square rounded-xl overflow-hidden bg-gray-100">
+                    <img src={url} alt={`Photo ${i + 1}`} loading="lazy" className="w-full h-full object-cover" />
+                  </a>
+                  <button
+                    onClick={() => onRemove(listing, url)}
+                    disabled={busyUrl === url}
+                    className="w-full text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                  >
+                    {busyUrl === url ? 'Removing…' : 'Remove photo'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function AdminListings() {
   const [listings, setListings] = useState([])
@@ -16,6 +61,9 @@ export default function AdminListings() {
   const [rowError, setRowError] = useState({})
   const [confirmAction, setConfirmAction] = useState(null)
   const [confirmBusy, setConfirmBusy] = useState(false)
+  const [photosListingId, setPhotosListingId] = useState(null)
+  const [photoBusyUrl, setPhotoBusyUrl] = useState(null)
+  const [photoError, setPhotoError] = useState('')
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -86,6 +134,26 @@ export default function AdminListings() {
       message: `"${l.title}" will be hidden from the marketplace until you restore it.`,
       confirmLabel: 'Take down',
       run: () => toggleActive(l),
+    })
+  }
+
+  const requestRemovePhoto = (listing, url) => {
+    setConfirmAction({
+      title: 'Remove this photo?',
+      message: `It will be deleted from "${listing.title}". The provider can't restore it, but can upload new photos.`,
+      confirmLabel: 'Remove photo',
+      run: async () => {
+        setPhotoBusyUrl(url)
+        setPhotoError('')
+        try {
+          const updated = await removeListingPhoto(listing.id, url)
+          setListings((prev) => prev.map((x) => (x.id === listing.id ? { ...x, ...updated } : x)))
+        } catch {
+          setPhotoError('Could not remove that photo — try again.')
+        } finally {
+          setPhotoBusyUrl(null)
+        }
+      },
     })
   }
 
@@ -176,10 +244,30 @@ export default function AdminListings() {
                   return (
                     <tr key={l.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition-colors">
                       <td className="px-5 py-4">
-                        <a href={`/services/${l.id}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-900 hover:text-primary-600 transition-colors">
-                          {l.title}
-                        </a>
-                        <p className="text-xs text-gray-400 mt-0.5">{l.category}</p>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => { setPhotoError(''); setPhotosListingId(l.id) }}
+                            title="Review photos"
+                            className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center hover:ring-2 hover:ring-primary-300 transition"
+                          >
+                            {l.imageUrl ? (
+                              <img src={l.imageUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
+                            ) : (
+                              <Images size={18} className="text-gray-300" />
+                            )}
+                            {listingPhotoUrls(l).length > 1 && (
+                              <span className="absolute bottom-0.5 right-0.5 text-[10px] font-bold text-white bg-black/60 rounded px-1">
+                                {listingPhotoUrls(l).length}
+                              </span>
+                            )}
+                          </button>
+                          <div className="min-w-0">
+                            <a href={`/services/${l.id}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-900 hover:text-primary-600 transition-colors">
+                              {l.title}
+                            </a>
+                            <p className="text-xs text-gray-400 mt-0.5">{l.category}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-gray-600">{providerNames[l.providerId] ?? '—'}</td>
                       <td className="px-5 py-4 text-gray-600">{l.currency} {l.price?.toLocaleString()}</td>
@@ -219,6 +307,14 @@ export default function AdminListings() {
           </table>
         </div>
       </div>
+
+      <ListingPhotosPanel
+        listing={listings.find((l) => l.id === photosListingId)}
+        busyUrl={photoBusyUrl}
+        error={photoError}
+        onRemove={requestRemovePhoto}
+        onClose={() => setPhotosListingId(null)}
+      />
 
       <ConfirmDialog
         action={confirmAction}

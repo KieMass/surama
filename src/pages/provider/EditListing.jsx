@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
-import { db, storage, auth } from '../../firebase'
+import { db, auth } from '../../firebase'
 import { asset } from '../../lib/asset'
+import { deleteImageByUrl, photosFromListing, uploadListingPhotos } from '../../lib/images'
+import ListingPhotosEditor from '../../components/ListingPhotosEditor'
 
 const CATEGORIES = [
   'Cleaning', 'Plumbing', 'Electrical', 'Carpentry',
@@ -26,10 +27,8 @@ export default function EditListing() {
     price: '',
     currency: 'GYD',
   })
-  const [existingImageUrl, setExistingImageUrl] = useState(null)
-  const [originalImageUrl, setOriginalImageUrl] = useState(null)
-  const [imageFile, setImageFile] = useState(null)
-  const [imagePreview, setImagePreview] = useState(null)
+  const [photos, setPhotos] = useState([])
+  const [originalUrls, setOriginalUrls] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -51,8 +50,9 @@ export default function EditListing() {
         price: data.price ?? '',
         currency: data.currency ?? 'GYD',
       })
-      setExistingImageUrl(data.imageUrl ?? null)
-      setOriginalImageUrl(data.imageUrl ?? null)
+      const existing = photosFromListing(data)
+      setPhotos(existing)
+      setOriginalUrls(existing.map((p) => p.url))
       setLoading(false)
     }
     load()
@@ -60,44 +60,12 @@ export default function EditListing() {
 
   const set = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0] || null
-    if (file && file.size > 5 * 1024 * 1024) {
-      setError('Image must be under 5 MB.')
-      e.target.value = ''
-      return
-    }
-    setError('')
-    setImageFile(file)
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (ev) => setImagePreview(ev.target.result)
-      reader.readAsDataURL(file)
-    } else {
-      setImagePreview(null)
-    }
-  }
-
-  const handleRemoveImage = () => {
-    setImageFile(null)
-    setImagePreview(null)
-    setExistingImageUrl(null)
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSaving(true)
     try {
-      let imageUrl = existingImageUrl
-      if (imageFile) {
-        const storageRef = ref(
-          storage,
-          `listings/${auth.currentUser.uid}/${Date.now()}_${imageFile.name}`
-        )
-        const snap = await uploadBytes(storageRef, imageFile)
-        imageUrl = await getDownloadURL(snap.ref)
-      }
+      const images = await uploadListingPhotos(photos, auth.currentUser.uid)
 
       await updateDoc(doc(db, 'services', id), {
         title: form.title,
@@ -105,17 +73,12 @@ export default function EditListing() {
         description: form.description,
         price: parseFloat(form.price),
         currency: form.currency,
-        imageUrl,
+        images,
+        imageUrl: images[0] ?? null,
       })
 
-      // Best-effort cleanup of the replaced/removed image — non-fatal either way.
-      if (originalImageUrl && originalImageUrl !== imageUrl) {
-        try {
-          await deleteObject(ref(storage, originalImageUrl))
-        } catch {
-          // Old file may already be gone — ignore.
-        }
-      }
+      // Best-effort cleanup of photos removed from the gallery.
+      await Promise.all(originalUrls.filter((url) => !images.includes(url)).map(deleteImageByUrl))
 
       navigate('/provider/listings')
     } catch (err) {
@@ -154,8 +117,6 @@ export default function EditListing() {
     )
   }
 
-  const displayedImage = imagePreview ?? existingImageUrl
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
@@ -188,28 +149,7 @@ export default function EditListing() {
       <div className="max-w-2xl mx-auto px-6 py-8">
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
-          {/* Image upload area */}
-          <div className="relative">
-            {displayedImage ? (
-              <div className="relative">
-                <img src={displayedImage} alt="Preview" className="w-full h-48 object-cover" />
-                <button
-                  type="button"
-                  onClick={handleRemoveImage}
-                  className="absolute top-3 right-3 bg-black/50 hover:bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg transition-colors"
-                >
-                  ×
-                </button>
-              </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center h-40 cursor-pointer bg-gray-50 border-b border-gray-100 hover:bg-primary-50 transition-colors group">
-                <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">📷</div>
-                <p className="text-sm font-medium text-gray-600 group-hover:text-primary-600">Upload a photo</p>
-                <p className="text-xs text-gray-400 mt-1">Optional — JPG, PNG, WEBP</p>
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-              </label>
-            )}
-          </div>
+          <ListingPhotosEditor items={photos} onChange={setPhotos} onError={setError} disabled={saving} />
 
           <div className="p-6 space-y-5">
             <div>

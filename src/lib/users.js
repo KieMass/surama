@@ -1,21 +1,19 @@
 import { doc, updateDoc } from 'firebase/firestore'
 import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject,
-} from 'firebase/storage'
-import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
   updateProfile,
   verifyBeforeUpdateEmail,
 } from 'firebase/auth'
-import { auth, db, storage } from '../firebase'
+import { auth, db } from '../firebase'
+import { AVATAR_MAX_SIZE, uploadResizedImage, deleteImageByUrl } from './images'
+import { syncProfile } from './profiles'
 
 // Updates the account-owner's editable profile fields (name, phone).
-export async function updateUserProfile(uid, { name, phone }) {
+// photoURL is the current photo, passed through so the public profile
+// keeps it alongside the new name.
+export async function updateUserProfile(uid, { name, phone, photoURL }) {
   await updateDoc(doc(db, 'users', uid), {
     name,
     phone: phone || '',
@@ -23,43 +21,33 @@ export async function updateUserProfile(uid, { name, phone }) {
   if (auth.currentUser && auth.currentUser.displayName !== name) {
     await updateProfile(auth.currentUser, { displayName: name })
   }
+  await syncProfile(uid, { name, photoURL })
 }
 
-// Uploads a new display picture, points the user doc + auth profile at it,
-// and best-effort deletes the previous photo so storage doesn't accumulate.
-export async function uploadAvatar(uid, file, previousUrl) {
-  const storageRef = ref(storage, `avatars/${uid}/${Date.now()}_${file.name}`)
-  const snap = await uploadBytes(storageRef, file)
-  const photoURL = await getDownloadURL(snap.ref)
+// Uploads a new display picture (shrunk in the browser first — see
+// lib/images.js), points the user doc, auth profile and public profile at
+// it, and best-effort deletes the previous photo so storage doesn't
+// accumulate.
+export async function uploadAvatar(uid, file, previousUrl, name) {
+  const photoURL = await uploadResizedImage(file, `avatars/${uid}`, AVATAR_MAX_SIZE)
 
   await updateDoc(doc(db, 'users', uid), { photoURL })
   if (auth.currentUser) {
     await updateProfile(auth.currentUser, { photoURL })
   }
-
-  if (previousUrl) {
-    try {
-      await deleteObject(ref(storage, previousUrl))
-    } catch {
-      // Old file may already be gone, or from a different bucket path — non-fatal.
-    }
-  }
+  await syncProfile(uid, { name, photoURL })
+  await deleteImageByUrl(previousUrl)
 
   return photoURL
 }
 
-export async function removeAvatar(uid, previousUrl) {
+export async function removeAvatar(uid, previousUrl, name) {
   await updateDoc(doc(db, 'users', uid), { photoURL: null })
   if (auth.currentUser) {
     await updateProfile(auth.currentUser, { photoURL: null })
   }
-  if (previousUrl) {
-    try {
-      await deleteObject(ref(storage, previousUrl))
-    } catch {
-      // Non-fatal — see uploadAvatar.
-    }
-  }
+  await syncProfile(uid, { name, photoURL: null })
+  await deleteImageByUrl(previousUrl)
 }
 
 // Re-authenticates with the current password (required by Firebase for a
